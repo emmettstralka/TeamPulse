@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0FDFB8EAAE3B65A972C2A5C7 /* ActivityRingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */; };
+		116272EFB08D3C764BE1CBBC /* HealthSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239D7B2002FDFCDBFE0446B4 /* HealthSummaryView.swift */; };
 		143A4D3E0C892E37D70DA476 /* WatchWorkoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35AFB18402F32BFA6F52EDDF /* WatchWorkoutApp.swift */; };
 		1BD74FD41C5679E18B59864B /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D68E19B0DCA9DDBF95F136 /* WebSocketClient.swift */; };
 		1FAEA62A9D03FE860FCC85BC /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15392C836899E9B557D85E26 /* OfflineQueueManager.swift */; };
@@ -14,9 +16,11 @@
 		355580933C3ABB56711DDA75 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687974ACC0D79BF023877409 /* ContentView.swift */; };
 		41E5926B6DFAB054333C6678 /* WatchWorkout.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E591E302419A2D131205B169 /* WatchWorkout.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		541E1DF1EFAFACF4E6D63802 /* WorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2714A751BAB07F0FEE243DC5 /* WorkoutSummaryView.swift */; };
+		557E648CB3C8FDA767780BAC /* TeamMembershipStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576015CFE663135214B3AC28 /* TeamMembershipStore.swift */; };
 		812FBF2B55B67C09A35F1F83 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 323B6FA7945C7494BD37CF47 /* Color+Hex.swift */; };
 		823447FDCFACCEB2669AD843 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0BFF023B454D443D2CEEB28 /* HealthKitManager.swift */; };
 		8B29F7079DB443EBF47E9216 /* BackendSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56A9C309E2FEC247EE16B6F0 /* BackendSyncService.swift */; };
+		8F316D3425B82C3E464D55F6 /* TeamJoinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF095CA19B8698D0C197DD75 /* TeamJoinView.swift */; };
 		94DC0EA55A47D3D571290164 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E778631C7E1AC2BC87D11E36 /* OnboardingView.swift */; };
 		A28F7AF58D42897B8BA5D33B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F31B9E6875CC11686D64BA /* ContentView.swift */; };
 		B117D0299ABEA579DE32D3F1 /* WorkoutSyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E6D7F5FEBA4EE80A94A911A /* WorkoutSyncApp.swift */; };
@@ -50,20 +54,24 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0BAE8AA46F4FD88627206D50 /* WorkoutSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkoutSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0BAE8AA46F4FD88627206D50 /* WorkoutSync.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WorkoutSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0E6D7F5FEBA4EE80A94A911A /* WorkoutSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSyncApp.swift; sourceTree = "<group>"; };
 		15392C836899E9B557D85E26 /* OfflineQueueManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineQueueManager.swift; sourceTree = "<group>"; };
+		239D7B2002FDFCDBFE0446B4 /* HealthSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSummaryView.swift; sourceTree = "<group>"; };
 		2714A751BAB07F0FEE243DC5 /* WorkoutSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSummaryView.swift; sourceTree = "<group>"; };
 		323B6FA7945C7494BD37CF47 /* Color+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		35AFB18402F32BFA6F52EDDF /* WatchWorkoutApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutApp.swift; sourceTree = "<group>"; };
 		39E1081DBB06C83523D6ADC5 /* WorkoutLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutLiveView.swift; sourceTree = "<group>"; };
 		56A9C309E2FEC247EE16B6F0 /* BackendSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendSyncService.swift; sourceTree = "<group>"; };
+		576015CFE663135214B3AC28 /* TeamMembershipStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamMembershipStore.swift; sourceTree = "<group>"; };
 		687974ACC0D79BF023877409 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A0BFF023B454D443D2CEEB28 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
 		B4D68E19B0DCA9DDBF95F136 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		D163775CFCC1DC3365294FC0 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		E591E302419A2D131205B169 /* WatchWorkout.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchWorkout.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E778631C7E1AC2BC87D11E36 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		EF095CA19B8698D0C197DD75 /* TeamJoinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamJoinView.swift; sourceTree = "<group>"; };
 		F0F31B9E6875CC11686D64BA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F21CB9BE1A0A9B2D74E1F31A /* WatchConnectivityReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityReceiver.swift; sourceTree = "<group>"; };
 		F3A16455A1472E6D23CC571A /* WorkoutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutManager.swift; sourceTree = "<group>"; };
@@ -86,6 +94,7 @@
 				61817B8FA5C046E0C92148D2 /* Connectivity */,
 				51C52DAB63F2F3D58DCD11B8 /* HealthKit */,
 				023E59400777DBA2635063B0 /* Networking */,
+				72AEE3F32352B822657204AE /* Team */,
 				800C68394779CF898F27C260 /* Views */,
 			);
 			name = Sources;
@@ -132,11 +141,22 @@
 			path = Connectivity;
 			sourceTree = "<group>";
 		};
+		72AEE3F32352B822657204AE /* Team */ = {
+			isa = PBXGroup;
+			children = (
+				576015CFE663135214B3AC28 /* TeamMembershipStore.swift */,
+			);
+			path = Team;
+			sourceTree = "<group>";
+		};
 		800C68394779CF898F27C260 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */,
 				687974ACC0D79BF023877409 /* ContentView.swift */,
+				239D7B2002FDFCDBFE0446B4 /* HealthSummaryView.swift */,
 				E778631C7E1AC2BC87D11E36 /* OnboardingView.swift */,
+				EF095CA19B8698D0C197DD75 /* TeamJoinView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -253,12 +273,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					6BDDC6027B193B83090CB901 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					CF20E8555A88EB987FF1AE75 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -303,11 +325,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0FDFB8EAAE3B65A972C2A5C7 /* ActivityRingsView.swift in Sources */,
 				8B29F7079DB443EBF47E9216 /* BackendSyncService.swift in Sources */,
 				355580933C3ABB56711DDA75 /* ContentView.swift in Sources */,
 				823447FDCFACCEB2669AD843 /* HealthKitManager.swift in Sources */,
+				116272EFB08D3C764BE1CBBC /* HealthSummaryView.swift in Sources */,
 				1FAEA62A9D03FE860FCC85BC /* OfflineQueueManager.swift in Sources */,
 				94DC0EA55A47D3D571290164 /* OnboardingView.swift in Sources */,
+				8F316D3425B82C3E464D55F6 /* TeamJoinView.swift in Sources */,
+				557E648CB3C8FDA767780BAC /* TeamMembershipStore.swift in Sources */,
 				31A973E7A2BE2589BEFA6B15 /* WatchConnectivityReceiver.swift in Sources */,
 				B117D0299ABEA579DE32D3F1 /* WorkoutSyncApp.swift in Sources */,
 			);
@@ -459,13 +485,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = WatchWorkout/WatchWorkout.entitlements;
-				DEVELOPMENT_TEAM = YY6247AQXA;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WatchWorkout/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -482,13 +504,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = WatchWorkout/WatchWorkout.entitlements;
-				DEVELOPMENT_TEAM = YY6247AQXA;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WatchWorkout/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -507,14 +525,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = WorkoutSync/WorkoutSync.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = YY6247AQXA;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WorkoutSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone;
 				SDKROOT = iphoneos;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
@@ -531,14 +545,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = WorkoutSync/WorkoutSync.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = YY6247AQXA;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WorkoutSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone;
 				SDKROOT = iphoneos;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;

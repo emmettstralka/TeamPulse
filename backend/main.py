@@ -10,9 +10,11 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 
 from config import HOST, PORT, WS_HEARTBEAT_INTERVAL, get_hr_zone
@@ -31,6 +33,13 @@ from models import (
     get_session_data,
     upsert_athlete,
     get_athlete,
+    create_team,
+    get_team,
+    get_team_by_code,
+    join_team,
+    upsert_healthkit_workout,
+    upsert_activity_rings,
+    get_team_board,
 )
 from websocket_manager import manager
 
@@ -44,9 +53,9 @@ logger = logging.getLogger("backend")
 # ─── FastAPI Setup ────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Workout System API",
-    version="1.0.0",
-    description="Real-time workout streaming backend",
+    title="TeamPulse API",
+    version="2.0.0",
+    description="Team tracking from Apple Health — coach dashboard backend",
 )
 
 app.add_middleware(
@@ -105,6 +114,53 @@ class RecoveryMetricsRequest(BaseModel):
     recovery_score: Optional[float] = None
     fatigue_score: Optional[float] = None
     readiness_score: Optional[float] = None
+
+
+class CreateTeamRequest(BaseModel):
+    name: str
+    sport: str = "soccer"
+
+
+class JoinTeamRequest(BaseModel):
+    join_code: str
+    athlete_id: str
+    display_name: str
+
+
+class HealthKitWorkoutRequest(BaseModel):
+    athlete_id: str
+    healthkit_uuid: str
+    workout_type: str = "other"
+    started_at: str
+    ended_at: Optional[str] = None
+    duration_seconds: int = 0
+    total_calories: float = 0
+    total_distance: float = 0
+    avg_hr: Optional[int] = None
+    max_hr: Optional[int] = None
+    min_hr: Optional[int] = None
+
+
+class ActivityRingsRequest(BaseModel):
+    athlete_id: str
+    date: str
+    move_kcal: float = 0
+    move_goal: float = 500
+    exercise_min: float = 0
+    exercise_goal: float = 30
+    stand_hours: float = 0
+    stand_goal: float = 12
+
+
+DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
+
+
+@app.get("/")
+async def serve_dashboard():
+    index = DASHBOARD_DIR / "index.html"
+    if not index.exists():
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+    return FileResponse(index)
 
 
 # ─── REST API Routes ──────────────────────────────────────────────────────────
@@ -285,6 +341,95 @@ async def get_recovery(athlete_id: str, days: int = Query(default=7, ge=1, le=30
     """Get recovery metrics history for an athlete."""
     metrics = get_recovery_metrics(athlete_id, days)
     return {"athlete_id": athlete_id, "days": days, "metrics": metrics}
+
+
+# ─── Teams ────────────────────────────────────────────────────────────────────
+
+
+@app.post("/api/teams")
+async def api_create_team(req: CreateTeamRequest):
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Team name is required")
+    team = create_team(req.name, req.sport)
+    return {"team": team}
+
+
+@app.post("/api/teams/join")
+async def api_join_team(req: JoinTeamRequest):
+    try:
+        result = join_team(req.join_code, req.athlete_id, req.display_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return result
+
+
+@app.get("/api/teams/code/{join_code}")
+async def api_team_by_code(join_code: str):
+    team = get_team_by_code(join_code)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {"team": team}
+
+
+@app.get("/api/teams/{team_id}")
+async def api_get_team(team_id: str):
+    team = get_team(team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {"team": team}
+
+
+@app.get("/api/teams/{team_id}/board")
+async def api_team_board(team_id: str):
+    board = get_team_board(team_id)
+    if not board:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return board
+
+
+@app.get("/api/teams/code/{join_code}/board")
+async def api_team_board_by_code(join_code: str):
+    team = get_team_by_code(join_code)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return get_team_board(team["id"])
+
+
+# ─── HealthKit workout + rings ingest ─────────────────────────────────────────
+
+
+@app.post("/api/workouts/sync")
+async def api_sync_workout(req: HealthKitWorkoutRequest):
+    session = upsert_healthkit_workout(
+        athlete_id=req.athlete_id,
+        healthkit_uuid=req.healthkit_uuid,
+        workout_type=req.workout_type,
+        started_at=req.started_at,
+        ended_at=req.ended_at,
+        duration_seconds=req.duration_seconds,
+        total_calories=req.total_calories,
+        total_distance=req.total_distance,
+        avg_hr=req.avg_hr,
+        max_hr=req.max_hr,
+        min_hr=req.min_hr,
+    )
+    logger.info(f"HealthKit workout synced: {req.healthkit_uuid} athlete={req.athlete_id}")
+    return {"session": session}
+
+
+@app.post("/api/rings/sync")
+async def api_sync_rings(req: ActivityRingsRequest):
+    rings = upsert_activity_rings(
+        req.athlete_id,
+        req.date,
+        req.move_kcal,
+        req.move_goal,
+        req.exercise_min,
+        req.exercise_goal,
+        req.stand_hours,
+        req.stand_goal,
+    )
+    return {"rings": rings}
 
 
 # ─── Athlete ──────────────────────────────────────────────────────────────────

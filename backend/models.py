@@ -2,7 +2,9 @@
 
 import sqlite3
 import json
-from datetime import datetime
+import uuid
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional, List
 from contextlib import contextmanager
 
@@ -28,7 +30,9 @@ def init_db():
                 avg_hr INTEGER,
                 max_hr INTEGER,
                 min_hr INTEGER,
-                status TEXT DEFAULT 'active'
+                status TEXT DEFAULT 'active',
+                healthkit_uuid TEXT,
+                source TEXT DEFAULT 'live'
             )
         """)
 
@@ -109,9 +113,56 @@ def init_db():
             CREATE TABLE IF NOT EXISTS athletes (
                 id TEXT PRIMARY KEY,
                 created_at TEXT NOT NULL,
-                last_seen TEXT
+                last_seen TEXT,
+                display_name TEXT
             )
         """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS teams (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                join_code TEXT UNIQUE NOT NULL,
+                sport TEXT DEFAULT 'soccer',
+                created_at TEXT NOT NULL
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS team_members (
+                team_id TEXT NOT NULL,
+                athlete_id TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                role TEXT DEFAULT 'athlete',
+                joined_at TEXT NOT NULL,
+                PRIMARY KEY (team_id, athlete_id),
+                FOREIGN KEY (team_id) REFERENCES teams(id),
+                FOREIGN KEY (athlete_id) REFERENCES athletes(id)
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS activity_rings (
+                athlete_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                move_kcal REAL DEFAULT 0,
+                move_goal REAL DEFAULT 500,
+                exercise_min REAL DEFAULT 0,
+                exercise_goal REAL DEFAULT 30,
+                stand_hours REAL DEFAULT 0,
+                stand_goal REAL DEFAULT 12,
+                synced_at TEXT NOT NULL,
+                UNIQUE(athlete_id, date)
+            )
+        """)
+
+        _ensure_column(c, "sessions", "healthkit_uuid", "TEXT")
+        _ensure_column(c, "sessions", "source", "TEXT DEFAULT 'live'")
+        _ensure_column(c, "athletes", "display_name", "TEXT")
+
+        c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_hk ON sessions(healthkit_uuid)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_members_team ON team_members(team_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_rings_athlete ON activity_rings(athlete_id)")
 
         # Indexes for performance
         c.execute("CREATE INDEX IF NOT EXISTS idx_hr_session ON heart_rate_data(session_id)")
@@ -123,6 +174,13 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_queue_synced ON message_queue(synced)")
 
         conn.commit()
+        seed_demo_team_if_needed()
+
+
+def _ensure_column(cursor, table: str, column: str, ddl: str):
+    existing = [row[1] for row in cursor.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in existing:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
 @contextmanager
@@ -174,7 +232,10 @@ def end_session(session_id: str, duration_seconds: int, total_calories: float, t
             (session_id,),
         )
         hr_row = c.fetchone()
-        min_hr, max_hr, avg_hr = hr_row["MIN(hr)"], hr_row["MAX(hr)"], int(hr_row["AVG(hr)"])
+        min_hr = hr_row["MIN(hr)"]
+        max_hr = hr_row["MAX(hr)"]
+        avg_raw = hr_row["AVG(hr)"]
+        avg_hr = int(avg_raw) if avg_raw is not None else None
 
         c.execute(
             """UPDATE sessions SET
@@ -333,16 +394,18 @@ def get_recovery_metrics(athlete_id: str, days: int = 7) -> List[dict]:
 # ─── Athlete Operations ───────────────────────────────────────────────────────
 
 
-def upsert_athlete(athlete_id: str):
+def upsert_athlete(athlete_id: str, display_name: Optional[str] = None):
     """Create or update athlete last-seen timestamp."""
     with get_connection() as conn:
         c = conn.cursor()
         now = datetime.utcnow().isoformat()
         c.execute(
-            """INSERT INTO athletes (id, created_at, last_seen)
-               VALUES (?, ?, ?)
-               ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen""",
-            (athlete_id, now, now),
+            """INSERT INTO athletes (id, created_at, last_seen, display_name)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 last_seen = excluded.last_seen,
+                 display_name = COALESCE(excluded.display_name, athletes.display_name)""",
+            (athlete_id, now, now, display_name),
         )
         conn.commit()
 
@@ -419,3 +482,354 @@ def get_session_data(session_id: str) -> dict:
             "distance_data": distance_data,
             "time_in_zones": time_in_zones,
         }
+
+
+# ─── Teams ────────────────────────────────────────────────────────────────────
+
+
+def generate_join_code() -> str:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(6))
+
+
+def create_team(name: str, sport: str = "soccer") -> dict:
+    team_id = str(uuid.uuid4())
+    join_code = generate_join_code()
+    with get_connection() as conn:
+        c = conn.cursor()
+        for _ in range(8):
+            try:
+                c.execute(
+                    "INSERT INTO teams (id, name, join_code, sport, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (team_id, name.strip(), join_code, sport, datetime.utcnow().isoformat()),
+                )
+                conn.commit()
+                break
+            except sqlite3.IntegrityError:
+                join_code = generate_join_code()
+        else:
+            raise RuntimeError("Could not allocate a unique join code")
+    return get_team(team_id)
+
+
+def get_team(team_id: str) -> Optional[dict]:
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM teams WHERE id = ?", (team_id,))
+        row = c.fetchone()
+        return dict(row) if row else None
+
+
+def get_team_by_code(join_code: str) -> Optional[dict]:
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM teams WHERE join_code = ?", (join_code.strip().upper(),))
+        row = c.fetchone()
+        return dict(row) if row else None
+
+
+def join_team(join_code: str, athlete_id: str, display_name: str, role: str = "athlete") -> dict:
+    team = get_team_by_code(join_code)
+    if not team:
+        raise ValueError("Invalid join code")
+    upsert_athlete(athlete_id, display_name)
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            """INSERT INTO team_members (team_id, athlete_id, display_name, role, joined_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(team_id, athlete_id) DO UPDATE SET
+                 display_name = excluded.display_name""",
+            (team["id"], athlete_id, display_name.strip(), role, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+    return {**team, "athlete_id": athlete_id, "display_name": display_name, "role": role}
+
+
+def list_team_members(team_id: str) -> List[dict]:
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            """SELECT m.*, a.last_seen
+               FROM team_members m
+               LEFT JOIN athletes a ON a.id = m.athlete_id
+               WHERE m.team_id = ?
+               ORDER BY m.display_name COLLATE NOCASE""",
+            (team_id,),
+        )
+        return [dict(row) for row in c.fetchall()]
+
+
+def upsert_healthkit_workout(
+    athlete_id: str,
+    healthkit_uuid: str,
+    workout_type: str,
+    started_at: str,
+    ended_at: Optional[str],
+    duration_seconds: int,
+    total_calories: float,
+    total_distance: float,
+    avg_hr: Optional[int],
+    max_hr: Optional[int],
+    min_hr: Optional[int],
+) -> dict:
+    upsert_athlete(athlete_id)
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id FROM sessions WHERE healthkit_uuid = ?", (healthkit_uuid,))
+        existing = c.fetchone()
+        session_id = existing["id"] if existing else healthkit_uuid
+        status = "completed" if ended_at else "active"
+        if existing:
+            c.execute(
+                """UPDATE sessions SET
+                     athlete_id = ?, workout_type = ?, started_at = ?, ended_at = ?,
+                     duration_seconds = ?, total_calories = ?, total_distance = ?,
+                     avg_hr = ?, max_hr = ?, min_hr = ?, status = ?, source = 'healthkit'
+                   WHERE id = ?""",
+                (
+                    athlete_id, workout_type, started_at, ended_at,
+                    duration_seconds, total_calories, total_distance,
+                    avg_hr, max_hr, min_hr, status, session_id,
+                ),
+            )
+        else:
+            c.execute(
+                """INSERT INTO sessions (
+                     id, athlete_id, workout_type, started_at, ended_at, duration_seconds,
+                     total_calories, total_distance, avg_hr, max_hr, min_hr, status,
+                     healthkit_uuid, source
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'healthkit')""",
+                (
+                    session_id, athlete_id, workout_type, started_at, ended_at,
+                    duration_seconds, total_calories, total_distance,
+                    avg_hr, max_hr, min_hr, status, healthkit_uuid,
+                ),
+            )
+        conn.commit()
+    return get_session(session_id)
+
+
+def upsert_activity_rings(
+    athlete_id: str,
+    date: str,
+    move_kcal: float,
+    move_goal: float,
+    exercise_min: float,
+    exercise_goal: float,
+    stand_hours: float,
+    stand_goal: float,
+) -> dict:
+    upsert_athlete(athlete_id)
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            """INSERT INTO activity_rings (
+                athlete_id, date, move_kcal, move_goal, exercise_min, exercise_goal,
+                stand_hours, stand_goal, synced_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(athlete_id, date) DO UPDATE SET
+                move_kcal = excluded.move_kcal,
+                move_goal = excluded.move_goal,
+                exercise_min = excluded.exercise_min,
+                exercise_goal = excluded.exercise_goal,
+                stand_hours = excluded.stand_hours,
+                stand_goal = excluded.stand_goal,
+                synced_at = excluded.synced_at""",
+            (
+                athlete_id, date, move_kcal, move_goal, exercise_min, exercise_goal,
+                stand_hours, stand_goal, datetime.utcnow().isoformat(),
+            ),
+        )
+        conn.commit()
+        c.execute(
+            "SELECT * FROM activity_rings WHERE athlete_id = ? AND date = ?",
+            (athlete_id, date),
+        )
+        return dict(c.fetchone())
+
+
+def _flag_for_athlete(today_session: Optional[dict], recovery: Optional[dict]) -> str:
+    sleep = (recovery or {}).get("sleep_hours") or 0
+    readiness = (recovery or {}).get("readiness_score")
+    duration = (today_session or {}).get("duration_seconds") or 0
+    if sleep and sleep < 6:
+        return "rest"
+    if readiness is not None and readiness < 45:
+        return "rest"
+    if duration >= 90 * 60 or (sleep and sleep < 7):
+        return "watch"
+    return "ok"
+
+
+def get_team_board(team_id: str) -> Optional[dict]:
+    team = get_team(team_id)
+    if not team:
+        return None
+
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    members = list_team_members(team_id)
+    roster = []
+    practiced = 0
+    flagged = 0
+    sleep_values = []
+
+    with get_connection() as conn:
+        c = conn.cursor()
+        for member in members:
+            athlete_id = member["athlete_id"]
+            c.execute(
+                """SELECT * FROM sessions
+                   WHERE athlete_id = ? AND substr(started_at, 1, 10) = ?
+                   ORDER BY started_at DESC LIMIT 1""",
+                (athlete_id, today),
+            )
+            session_row = c.fetchone()
+            today_session = dict(session_row) if session_row else None
+
+            c.execute(
+                """SELECT COUNT(*) AS n, COALESCE(SUM(duration_seconds), 0) AS load_sec
+                   FROM sessions
+                   WHERE athlete_id = ? AND started_at >= datetime('now', '-7 days')
+                     AND status = 'completed'""",
+                (athlete_id,),
+            )
+            week = dict(c.fetchone())
+
+            c.execute(
+                "SELECT * FROM recovery_metrics WHERE athlete_id = ? ORDER BY date DESC LIMIT 1",
+                (athlete_id,),
+            )
+            rec_row = c.fetchone()
+            recovery = dict(rec_row) if rec_row else None
+
+            c.execute(
+                "SELECT * FROM activity_rings WHERE athlete_id = ? AND date = ?",
+                (athlete_id, today),
+            )
+            ring_row = c.fetchone()
+            rings = dict(ring_row) if ring_row else None
+
+            flag = _flag_for_athlete(today_session, recovery)
+            if today_session:
+                practiced += 1
+            if flag != "ok":
+                flagged += 1
+            if recovery and recovery.get("sleep_hours"):
+                sleep_values.append(recovery["sleep_hours"])
+
+            roster.append({
+                "athlete_id": athlete_id,
+                "display_name": member["display_name"],
+                "role": member["role"],
+                "last_seen": member.get("last_seen"),
+                "today": {
+                    "practiced": today_session is not None,
+                    "workout_type": (today_session or {}).get("workout_type"),
+                    "duration_seconds": (today_session or {}).get("duration_seconds") or 0,
+                    "distance": (today_session or {}).get("total_distance") or 0,
+                    "calories": (today_session or {}).get("total_calories") or 0,
+                    "avg_hr": (today_session or {}).get("avg_hr"),
+                    "started_at": (today_session or {}).get("started_at"),
+                },
+                "week": {
+                    "sessions": week["n"],
+                    "load_seconds": week["load_sec"],
+                },
+                "recovery": recovery,
+                "rings": rings,
+                "flag": flag,
+            })
+
+    return {
+        "team": team,
+        "date": today,
+        "summary": {
+            "athletes": len(roster),
+            "practiced_today": practiced,
+            "flagged": flagged,
+            "avg_sleep": round(sum(sleep_values) / len(sleep_values), 1) if sleep_values else None,
+        },
+        "roster": roster,
+    }
+
+
+def seed_demo_team_if_needed():
+    """Seed a demo club so the coach dashboard has something to show."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) AS n FROM teams")
+        if c.fetchone()["n"] > 0:
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            c.execute(
+                """UPDATE sessions SET started_at = ?, ended_at = ?
+                   WHERE id LIKE 'demo-wk-%' OR healthkit_uuid LIKE 'demo-wk-%'""",
+                (f"{today}T16:00:00", f"{today}T17:12:00"),
+            )
+            conn.commit()
+            return
+
+    team = create_team("Northside FC", "soccer")
+    # Stable demo join code
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("UPDATE teams SET join_code = ? WHERE id = ?", ("NORTH1", team["id"]))
+        conn.commit()
+    team = get_team(team["id"])
+
+    names = [
+        "Maya Chen", "Jordan Blake", "Sam Rivera", "Avery Cole",
+        "Riley Patel", "Chris Nguyen", "Taylor Brooks", "Quinn Walsh",
+        "Jamie Ortiz", "Morgan Lee", "Casey Dunn", "Alex Romero",
+    ]
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    for i, name in enumerate(names):
+        athlete_id = f"demo-{i+1:02d}"
+        join_team("NORTH1", athlete_id, name)
+        practiced = i < 9
+        if practiced:
+            duration = 48 * 60 + i * 90
+            hr = 142 + (i % 7) * 3
+            started_at = f"{today}T16:00:00"
+            ended_at = f"{today}T17:12:00"
+            upsert_healthkit_workout(
+                athlete_id=athlete_id,
+                healthkit_uuid=f"demo-wk-{athlete_id}-{today}",
+                workout_type="soccer",
+                started_at=started_at,
+                ended_at=ended_at,
+                duration_seconds=duration,
+                total_calories=420 + i * 12,
+                total_distance=6200 + i * 180,
+                avg_hr=hr,
+                max_hr=hr + 28,
+                min_hr=hr - 22,
+            )
+
+        sleep = 7.4 - (0.35 if i in (2, 7, 10) else 0) - (1.8 if i == 10 else 0)
+        upsert_recovery_metrics(
+            athlete_id,
+            today,
+            {
+                "sleep_hours": sleep,
+                "sleep_deep_hours": 1.4,
+                "sleep_rem_hours": 1.6,
+                "resting_hr": 54 + i,
+                "hrv_avg": 62 - i,
+                "recovery_score": 78 - i * 2,
+                "fatigue_score": 22 + i,
+                "readiness_score": 74 - (30 if i == 10 else i * 2),
+            },
+        )
+        upsert_activity_rings(
+            athlete_id,
+            today,
+            move_kcal=380 + i * 18,
+            move_goal=500,
+            exercise_min=22 + i,
+            exercise_goal=30,
+            stand_hours=8 + (i % 4),
+            stand_goal=12,
+        )
+

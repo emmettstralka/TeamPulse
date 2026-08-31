@@ -14,23 +14,23 @@ struct OnboardingView: View {
     private let pages: [OnboardingPage] = [
         OnboardingPage(
             icon: { AnyView(HeartRateOnboardIcon()) },
-            title: "Real-Time Heart Rate",
-            description: "Stream live heart rate from your Watch during workouts with sub-second latency."
+            title: "Apple Workout stays",
+            description: "Athletes train in Apple’s Workout app. TeamPulse reads HealthKit and sends load to your coach."
         ),
         OnboardingPage(
             icon: { AnyView(SyncOnboardIcon()) },
-            title: "Automatic Sync",
-            description: "Data syncs automatically in the background — no app interaction needed."
+            title: "Automatic Health sync",
+            description: "Completed workouts, rings, sleep, and HRV sync in the background after you unlock your phone."
         ),
         OnboardingPage(
             icon: { AnyView(AnalyticsOnboardIcon()) },
-            title: "Recovery Analytics",
-            description: "Post-workout sync of sleep, HRV, and readiness scores from Apple Health."
+            title: "Coach dashboard",
+            description: "The whole roster on one board — who practiced, load, and who needs rest."
         ),
         OnboardingPage(
             icon: { AnyView(PrivacyOnboardIcon()) },
-            title: "Privacy First",
-            description: "Health data stays on-device, transmitted only as encrypted aggregates."
+            title: "You control sharing",
+            description: "Health data only leaves the phone after you grant access and join a team."
         ),
     ]
 

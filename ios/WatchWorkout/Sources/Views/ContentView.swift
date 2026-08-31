@@ -107,9 +107,8 @@ struct WorkoutIdleView: View {
 
                 // ── Bottom bar ─────────────────────────────────────────────
                 HStack {
-                    // Music icon (left)
-                    Image(systemName: "music.note")
-                        .font(.system(size: sp(14)))
+                    MusicGlyph()
+                        .frame(width: sp(14), height: sp(14))
                         .foregroundColor(Color(hex: "B3B3B3"))
                         .frame(width: sp(30))
 
@@ -136,15 +135,22 @@ struct WorkoutIdleView: View {
 
                     Spacer()
 
-                    // Notifications icon (right)
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: sp(14)))
+                    WatchMark()
+                        .frame(width: sp(18), height: sp(18))
                         .foregroundColor(Color(hex: "B3B3B3"))
                         .frame(width: sp(30))
                 }
                 .padding(.horizontal, sp(12))
-                .padding(.bottom, sp(8))
+                .padding(.bottom, sp(2))
+
+                Text("Apple Workout also syncs")
+                    .font(.system(size: sp(8)))
+                    .foregroundColor(Color(hex: "8E8E93"))
+                    .padding(.bottom, sp(6))
             }
+        }
+        .onAppear {
+            Task { await workoutManager.fetchTodayActivityRings() }
         }
         .alert("Authorization", isPresented: $showAuthError) {
             Button("OK") {}
@@ -322,6 +328,38 @@ struct PlayIcon: View {
                 path.addLine(to: CGPoint(x: tx, y: ty + size * 0.80))
                 path.closeSubpath()
             }
+        }
+    }
+}
+
+struct WatchMark: View {
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            Path { path in
+                path.addRoundedRect(in: CGRect(x: w * 0.28, y: h * 0.08, width: w * 0.44, height: h * 0.84), cornerSize: CGSize(width: w * 0.16, height: w * 0.16))
+                path.addEllipse(in: CGRect(x: w * 0.40, y: h * 0.38, width: w * 0.20, height: h * 0.24))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+        }
+    }
+}
+
+struct MusicGlyph: View {
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            Path { path in
+                path.addEllipse(in: CGRect(x: w * 0.08, y: h * 0.62, width: w * 0.28, height: h * 0.24))
+                path.move(to: CGPoint(x: w * 0.36, y: h * 0.74))
+                path.addLine(to: CGPoint(x: w * 0.36, y: h * 0.12))
+                path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.22))
+                path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.78))
+                path.addEllipse(in: CGRect(x: w * 0.60, y: h * 0.66, width: w * 0.28, height: h * 0.24))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
         }
     }
 }

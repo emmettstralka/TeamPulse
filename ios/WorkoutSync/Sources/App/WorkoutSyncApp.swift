@@ -6,6 +6,7 @@ struct WorkoutSyncApp: App {
     @StateObject private var connectivityReceiver = WatchConnectivityReceiver.shared
     @StateObject private var backendSync = BackendSyncService.shared
     @StateObject private var offlineQueue = OfflineQueueManager.shared
+    @StateObject private var membership = TeamMembershipStore.shared
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
@@ -14,12 +15,15 @@ struct WorkoutSyncApp: App {
             if !hasCompletedOnboarding {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                     .environmentObject(healthKitManager)
+                    .preferredColorScheme(.dark)
             } else {
                 ContentView()
                     .environmentObject(healthKitManager)
                     .environmentObject(connectivityReceiver)
                     .environmentObject(backendSync)
                     .environmentObject(offlineQueue)
+                    .environmentObject(membership)
+                    .preferredColorScheme(.dark)
             }
         }
     }

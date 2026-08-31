@@ -48,15 +48,19 @@ enum ZoneColor {
 struct ContentView: View {
     @EnvironmentObject var connectivityReceiver: WatchConnectivityReceiver
     @EnvironmentObject var backendSync: BackendSyncService
+    @EnvironmentObject var membership: TeamMembershipStore
+    @EnvironmentObject var healthKitManager: HealthKitManager
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if case .active = connectivityReceiver.sessionState {
+            if !membership.hasJoinedTeam {
+                TeamJoinView()
+            } else if case .active = connectivityReceiver.sessionState {
                 LiveWorkoutView()
             } else {
-                IdleView()
+                HealthSummaryView()
             }
         }
     }
@@ -383,4 +387,6 @@ extension Color {
         .environmentObject(WatchConnectivityReceiver.shared)
         .environmentObject(BackendSyncService.shared)
         .environmentObject(OfflineQueueManager.shared)
+        .environmentObject(TeamMembershipStore.shared)
+        .environmentObject(HealthKitManager.shared)
 }

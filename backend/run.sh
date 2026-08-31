@@ -1,5 +1,7 @@
 #!/bin/bash
-# Start the workout system backend server
 cd "$(dirname "$0")"
-pip install -q -r requirements.txt
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --log-level info
+if [ ! -d .venv ]; then
+  python3 -m venv .venv
+fi
+.venv/bin/pip install -q -r requirements.txt
+.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 --log-level info

@@ -335,23 +335,72 @@ final class BackendSyncService: NSObject, ObservableObject {
     }
 
     private func sendRecoveryMetricsViaHTTP(_ payload: [String: Any]) async {
-        guard let url = httpBaseURL?.appendingPathComponent("api/recovery/sync") else { return }
+        await postJSON(path: "api/recovery/sync", payload: payload)
+    }
 
+    // MARK: - Team + HealthKit sync
+
+    func joinTeam(joinCode: String, athleteId: String, displayName: String) async throws -> [String: Any] {
+        let payload: [String: Any] = [
+            "join_code": joinCode.uppercased(),
+            "athlete_id": athleteId,
+            "display_name": displayName,
+        ]
+        return try await postJSONResponse(path: "api/teams/join", payload: payload)
+    }
+
+    func createTeam(name: String, sport: String) async throws -> [String: Any] {
+        try await postJSONResponse(path: "api/teams", payload: ["name": name, "sport": sport])
+    }
+
+    func syncHealthKitWorkout(_ payload: [String: Any]) async {
+        await postJSON(path: "api/workouts/sync", payload: payload)
+    }
+
+    func syncActivityRings(_ payload: [String: Any]) async {
+        await postJSON(path: "api/rings/sync", payload: payload)
+    }
+
+    private func apiURL(_ path: String) -> URL? {
+        URL(string: "http://\(backendHost):\(backendPort)/\(path)")
+    }
+
+    private func postJSON(path: String, payload: [String: Any]) async {
+        guard let url = apiURL(path) else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 10
-
+        request.timeoutInterval = 12
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                print("Recovery metrics synced successfully")
+            if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
+                print("POST \(path) ok")
+            } else {
+                print("POST \(path) failed: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                offlineQueue.enqueue(message: payload)
             }
         } catch {
-            print("Recovery sync failed: \(error.localizedDescription)")
-            offlineQueue.enqueue(message: ["type": "recovery_sync", "payload": payload])
+            print("POST \(path) error: \(error.localizedDescription)")
+            offlineQueue.enqueue(message: payload)
         }
+    }
+
+    private func postJSONResponse(path: String, payload: [String: Any]) async throws -> [String: Any] {
+        guard let url = apiURL(path) else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 12
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "Request failed"
+            throw NSError(domain: "TeamPulse", code: (response as? HTTPURLResponse)?.statusCode ?? -1, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
     // MARK: - Ping / Keep-Alive
