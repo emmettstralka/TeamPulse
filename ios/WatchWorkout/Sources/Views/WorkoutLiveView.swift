@@ -14,9 +14,9 @@ private func sp(_ pts: CGFloat) -> CGFloat {
 
 // MARK: - Ring Colors
 
-private let ringMove = Color(hex: "FF3B30")
-private let ringExercise = Color(hex: "32D74B")
-private let ringStand = Color(hex: "0A84FF")
+private let ringMove = Color(hex: "FA114F")
+private let ringExercise = Color(hex: "92ED2C")
+private let ringStand = Color(hex: "00D3EA")
 
 // MARK: - Zone Colors
 
@@ -212,7 +212,7 @@ struct WorkoutDetailView: View {
                         color: ringMove,
                         label: "MOVE",
                         value: Int(workoutManager.activityRings?.moveCalories ?? workoutManager.activeCalories),
-                        unit: "kcal"
+                        unit: "CAL"
                     )
 
                     // Exercise ring
@@ -221,7 +221,7 @@ struct WorkoutDetailView: View {
                         color: ringExercise,
                         label: "EXERCISE",
                         value: workoutManager.activityRings?.exerciseMinutes ?? (workoutManager.elapsedSeconds / 60),
-                        unit: "min"
+                        unit: "MIN"
                     )
 
                     // Stand ring
@@ -230,7 +230,7 @@ struct WorkoutDetailView: View {
                         color: ringStand,
                         label: "STAND",
                         value: workoutManager.activityRings?.standHours ?? (workoutManager.elapsedSeconds % 4),
-                        unit: "hr"
+                        unit: "HRS"
                     )
 
                     Spacer()
@@ -338,7 +338,7 @@ struct RingWithLabel: View {
                     .frame(width: radius * 2, height: radius * 2)
 
                 Circle()
-                    .trim(from: 0, to: max(0.001, progress))
+                    .trim(from: 0, to: min(1, max(0.001, progress)))
                     .stroke(color, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                     .frame(width: radius * 2, height: radius * 2)
                     .rotationEffect(.degrees(-90))

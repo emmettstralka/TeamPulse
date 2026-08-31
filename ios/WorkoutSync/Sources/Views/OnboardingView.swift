@@ -30,7 +30,7 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: { AnyView(PrivacyOnboardIcon()) },
             title: "You control sharing",
-            description: "Health data only leaves the phone after you grant access and join a team."
+            description: "Health data only leaves the phone after you grant access and join a club."
         ),
     ]
 

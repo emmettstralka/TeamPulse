@@ -662,6 +662,47 @@ def _flag_for_athlete(today_session: Optional[dict], recovery: Optional[dict]) -
     return "ok"
 
 
+def _average_rings(rows: List[dict]) -> dict:
+    """Team-average Activity rings, same units as Apple Watch (CAL / MIN / HRS)."""
+    empty = {
+        "move_kcal": 0,
+        "move_goal": 500,
+        "exercise_min": 0,
+        "exercise_goal": 30,
+        "stand_hours": 0,
+        "stand_goal": 12,
+        "closed_move": 0,
+        "closed_exercise": 0,
+        "closed_stand": 0,
+        "count": 0,
+    }
+    if not rows:
+        return empty
+    n = len(rows)
+
+    def avg(key, default=0):
+        return round(sum((r.get(key) or default) for r in rows) / n, 1)
+
+    move_kcal = avg("move_kcal")
+    move_goal = avg("move_goal", 500) or 500
+    exercise_min = avg("exercise_min")
+    exercise_goal = avg("exercise_goal", 30) or 30
+    stand_hours = avg("stand_hours")
+    stand_goal = avg("stand_goal", 12) or 12
+    return {
+        "move_kcal": move_kcal,
+        "move_goal": move_goal,
+        "exercise_min": exercise_min,
+        "exercise_goal": exercise_goal,
+        "stand_hours": stand_hours,
+        "stand_goal": stand_goal,
+        "closed_move": sum(1 for r in rows if (r.get("move_goal") or 0) > 0 and (r.get("move_kcal") or 0) >= r["move_goal"]),
+        "closed_exercise": sum(1 for r in rows if (r.get("exercise_goal") or 0) > 0 and (r.get("exercise_min") or 0) >= r["exercise_goal"]),
+        "closed_stand": sum(1 for r in rows if (r.get("stand_goal") or 0) > 0 and (r.get("stand_hours") or 0) >= r["stand_goal"]),
+        "count": n,
+    }
+
+
 def get_team_board(team_id: str) -> Optional[dict]:
     team = get_team(team_id)
     if not team:
@@ -673,6 +714,7 @@ def get_team_board(team_id: str) -> Optional[dict]:
     practiced = 0
     flagged = 0
     sleep_values = []
+    ring_rows = []
 
     with get_connection() as conn:
         c = conn.cursor()
@@ -717,6 +759,8 @@ def get_team_board(team_id: str) -> Optional[dict]:
                 flagged += 1
             if recovery and recovery.get("sleep_hours"):
                 sleep_values.append(recovery["sleep_hours"])
+            if rings:
+                ring_rows.append(rings)
 
             roster.append({
                 "athlete_id": athlete_id,
@@ -749,6 +793,7 @@ def get_team_board(team_id: str) -> Optional[dict]:
             "practiced_today": practiced,
             "flagged": flagged,
             "avg_sleep": round(sum(sleep_values) / len(sleep_values), 1) if sleep_values else None,
+            "rings": _average_rings(ring_rows),
         },
         "roster": roster,
     }
@@ -765,6 +810,14 @@ def seed_demo_team_if_needed():
                 """UPDATE sessions SET started_at = ?, ended_at = ?
                    WHERE id LIKE 'demo-wk-%' OR healthkit_uuid LIKE 'demo-wk-%'""",
                 (f"{today}T16:00:00", f"{today}T17:12:00"),
+            )
+            c.execute(
+                "UPDATE activity_rings SET date = ? WHERE athlete_id LIKE 'demo-%'",
+                (today,),
+            )
+            c.execute(
+                "UPDATE recovery_metrics SET date = ? WHERE athlete_id LIKE 'demo-%'",
+                (today,),
             )
             conn.commit()
             return

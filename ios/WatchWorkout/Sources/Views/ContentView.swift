@@ -14,9 +14,9 @@ private func sp(_ pts: CGFloat) -> CGFloat {
 
 // MARK: - Ring Colors
 
-private let ringMove = Color(hex: "FF3B30")
-private let ringExercise = Color(hex: "32D74B")
-private let ringStand = Color(hex: "0A84FF")
+private let ringMove = Color(hex: "FA114F")
+private let ringExercise = Color(hex: "92ED2C")
+private let ringStand = Color(hex: "00D3EA")
 
 // MARK: - Content View
 
@@ -59,6 +59,32 @@ struct WorkoutIdleView: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                if let rings = workoutManager.activityRings {
+                    HStack(spacing: sp(8)) {
+                        SummaryActivityRings(
+                            moveProgress: CGFloat(rings.moveProgress),
+                            exerciseProgress: CGFloat(rings.exerciseProgress),
+                            standProgress: CGFloat(rings.standProgress)
+                        )
+                        .frame(width: sp(52), height: sp(52))
+                        .scaleEffect(0.45)
+                        .frame(width: sp(52), height: sp(52))
+
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("MOVE \(Int(rings.moveCalories)) CAL")
+                                .font(.system(size: sp(8), weight: .bold))
+                                .foregroundColor(ringMove)
+                            Text("EXERCISE \(rings.exerciseMinutes) MIN")
+                                .font(.system(size: sp(8), weight: .bold))
+                                .foregroundColor(ringExercise)
+                            Text("STAND \(rings.standHours) HRS")
+                                .font(.system(size: sp(8), weight: .bold))
+                                .foregroundColor(ringStand)
+                        }
+                    }
+                    .padding(.top, sp(4))
+                }
+
                 // ── Top: Workout icon + name ────────────────────────────────
                 VStack(spacing: sp(4)) {
                     // Workout type icon in a circle
@@ -143,7 +169,7 @@ struct WorkoutIdleView: View {
                 .padding(.horizontal, sp(12))
                 .padding(.bottom, sp(2))
 
-                Text("Apple Workout also syncs")
+                Text("Apple Workout still syncs")
                     .font(.system(size: sp(8)))
                     .foregroundColor(Color(hex: "8E8E93"))
                     .padding(.bottom, sp(6))

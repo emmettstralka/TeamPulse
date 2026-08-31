@@ -9,8 +9,8 @@ struct ActivityRingsView: View {
     var gap: CGFloat = 6
 
     private let moveColor = Color(hex: "FA114F")
-    private let exerciseColor = Color(hex: "96F22B")
-    private let standColor = Color(hex: "32ADE6")
+    private let exerciseColor = Color(hex: "92ED2C")
+    private let standColor = Color(hex: "00D3EA")
 
     var body: some View {
         GeometryReader { geo in
@@ -42,12 +42,21 @@ struct ActivityRingsView: View {
     }
 
     private func ringFill(radius: CGFloat, progress: Double, color: Color) -> some View {
-        Circle()
-            .trim(from: 0, to: CGFloat(min(max(progress, 0.001), 1)))
-            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-            .rotationEffect(.degrees(-90))
-            .frame(width: radius * 2, height: radius * 2)
-            .shadow(color: color.opacity(0.45), radius: 4, x: 0, y: 0)
+        let clamped = min(max(progress, 0), 1)
+        let overflow = min(max(progress - 1, 0), 1)
+        return ZStack {
+            Circle()
+                .trim(from: 0, to: CGFloat(max(clamped, 0.001)))
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            if overflow > 0 {
+                Circle()
+                    .trim(from: 0, to: CGFloat(overflow))
+                    .stroke(color.opacity(0.85), style: StrokeStyle(lineWidth: lineWidth * 0.55, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+        }
+        .frame(width: radius * 2, height: radius * 2)
     }
 }
 

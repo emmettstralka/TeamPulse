@@ -14,9 +14,9 @@ private func sp(_ pts: CGFloat) -> CGFloat {
 
 // MARK: - Ring Colors
 
-private let ringMove = Color(hex: "FF3B30")
-private let ringExercise = Color(hex: "32D74B")
-private let ringStand = Color(hex: "0A84FF")
+private let ringMove = Color(hex: "FA114F")
+private let ringExercise = Color(hex: "92ED2C")
+private let ringStand = Color(hex: "00D3EA")
 
 // MARK: - Zone Colors
 
@@ -80,7 +80,31 @@ struct WorkoutSummaryView: View {
                     exerciseProgress: animatedExercise,
                     standProgress: animatedStand
                 )
-                .frame(width: sp(120), height: sp(120))
+                .frame(width: sp(96), height: sp(96))
+
+                Spacer().frame(height: sp(6))
+
+                HStack(spacing: 0) {
+                    RingCaption(
+                        title: "MOVE",
+                        value: "\(Int(ringData?.moveCalories ?? 0))",
+                        unit: "CAL",
+                        color: ringMove
+                    )
+                    RingCaption(
+                        title: "EXERCISE",
+                        value: "\(ringData?.exerciseMinutes ?? 0)",
+                        unit: "MIN",
+                        color: ringExercise
+                    )
+                    RingCaption(
+                        title: "STAND",
+                        value: "\(ringData?.standHours ?? 0)",
+                        unit: "HRS",
+                        color: ringStand
+                    )
+                }
+                .padding(.horizontal, sp(4))
 
                 // ── Spacing: 12pt ────────────────────────────────────────────
                 Spacer().frame(height: sp(12))
@@ -124,13 +148,13 @@ struct WorkoutSummaryView: View {
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.8)) {
-                animatedMove = CGFloat(ringData?.moveProgress ?? 0.85)
+                animatedMove = CGFloat(ringData?.moveProgress ?? 0)
             }
             withAnimation(.easeOut(duration: 0.8).delay(0.15)) {
-                animatedExercise = CGFloat(ringData?.exerciseProgress ?? 0.60)
+                animatedExercise = CGFloat(ringData?.exerciseProgress ?? 0)
             }
             withAnimation(.easeOut(duration: 0.8).delay(0.30)) {
-                animatedStand = CGFloat(ringData?.standProgress ?? 0.45)
+                animatedStand = CGFloat(ringData?.standProgress ?? 0)
             }
         }
     }
@@ -143,6 +167,28 @@ struct WorkoutSummaryView: View {
             return String(format: "%d:%02d:%02d", h, m, s)
         }
         return String(format: "%02d:%02d", m, s)
+    }
+}
+
+struct RingCaption: View {
+    let title: String
+    let value: String
+    let unit: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title)
+                .font(.system(size: sp(7), weight: .bold))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: sp(12), weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
+            Text(unit)
+                .font(.system(size: sp(7), weight: .medium))
+                .foregroundColor(Color(hex: "8E8E93"))
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -163,19 +209,28 @@ struct SummaryActivityRings: View {
     var body: some View {
         ZStack {
             Circle()
-                .trim(from: 0, to: max(0.001, moveProgress))
+                .stroke(ringMove.opacity(0.22), style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
+                .frame(width: outerRadius * 2, height: outerRadius * 2)
+            Circle()
+                .trim(from: 0, to: min(1, max(0.001, moveProgress)))
                 .stroke(ringMove, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: outerRadius * 2, height: outerRadius * 2)
 
             Circle()
-                .trim(from: 0, to: max(0.001, exerciseProgress))
+                .stroke(ringExercise.opacity(0.22), style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
+                .frame(width: middleRadius * 2, height: middleRadius * 2)
+            Circle()
+                .trim(from: 0, to: min(1, max(0.001, exerciseProgress)))
                 .stroke(ringExercise, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: middleRadius * 2, height: middleRadius * 2)
 
             Circle()
-                .trim(from: 0, to: max(0.001, standProgress))
+                .stroke(ringStand.opacity(0.22), style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
+                .frame(width: innerRadius * 2, height: innerRadius * 2)
+            Circle()
+                .trim(from: 0, to: min(1, max(0.001, standProgress)))
                 .stroke(ringStand, style: StrokeStyle(lineWidth: ringStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: innerRadius * 2, height: innerRadius * 2)

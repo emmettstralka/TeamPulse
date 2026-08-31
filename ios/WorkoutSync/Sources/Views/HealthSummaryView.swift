@@ -1,10 +1,13 @@
 import SwiftUI
+import UIKit
 
 struct HealthSummaryView: View {
     @EnvironmentObject var healthKitManager: HealthKitManager
     @EnvironmentObject var membership: TeamMembershipStore
     @EnvironmentObject var backendSync: BackendSyncService
     @EnvironmentObject var connectivityReceiver: WatchConnectivityReceiver
+    @State private var copiedCode = false
+    @State private var confirmLeave = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -38,7 +41,7 @@ struct HealthSummaryView: View {
                 Text("Summary")
                     .font(.system(size: 34, weight: .bold))
                     .foregroundColor(.white)
-                Text(membership.hasJoinedTeam ? membership.teamName : "Not on a team yet")
+                Text(membership.hasJoinedTeam ? membership.teamName : "Not in a club yet")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Color(hex: "8E8E93"))
             }
@@ -79,10 +82,28 @@ struct HealthSummaryView: View {
                 )
                 .frame(width: 148, height: 148)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    ringLegend(title: "Move", value: "\(Int(healthKitManager.moveCalories))/\(Int(healthKitManager.moveGoal))", unit: "kcal", color: Color(hex: "FA114F"))
-                    ringLegend(title: "Exercise", value: "\(Int(healthKitManager.exerciseMinutes))/\(Int(healthKitManager.exerciseGoal))", unit: "min", color: Color(hex: "96F22B"))
-                    ringLegend(title: "Stand", value: "\(Int(healthKitManager.standHours))/\(Int(healthKitManager.standGoal))", unit: "hrs", color: Color(hex: "32ADE6"))
+                VStack(alignment: .leading, spacing: 12) {
+                    ringLegend(
+                        title: "Move",
+                        value: "\(Int(healthKitManager.moveCalories))/\(Int(healthKitManager.moveGoal))",
+                        unit: "CAL",
+                        detail: "Active calories burned",
+                        color: Color(hex: "FA114F")
+                    )
+                    ringLegend(
+                        title: "Exercise",
+                        value: "\(Int(healthKitManager.exerciseMinutes))/\(Int(healthKitManager.exerciseGoal))",
+                        unit: "MIN",
+                        detail: "Brisk activity",
+                        color: Color(hex: "92ED2C")
+                    )
+                    ringLegend(
+                        title: "Stand",
+                        value: "\(Int(healthKitManager.standHours))/\(Int(healthKitManager.standGoal))",
+                        unit: "HRS",
+                        detail: "Hours stood and moved",
+                        color: Color(hex: "00D3EA")
+                    )
                 }
             }
         }
@@ -91,19 +112,23 @@ struct HealthSummaryView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private func ringLegend(title: String, value: String, unit: String, color: Color) -> some View {
+    private func ringLegend(title: String, value: String, unit: String, detail: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.6)
                 .foregroundColor(color)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                 Text(unit)
-                    .font(.system(size: 11))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Color(hex: "8E8E93"))
             }
+            Text(detail)
+                .font(.system(size: 11))
+                .foregroundColor(Color(hex: "8E8E93"))
         }
     }
 
@@ -198,17 +223,44 @@ struct HealthSummaryView: View {
                 .tracking(0.6)
                 .foregroundColor(Color(hex: "8E8E93"))
             if membership.hasJoinedTeam {
-                Text(membership.displayName.isEmpty ? "Athlete" : membership.displayName)
+                Text(membership.teamName)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(.white)
-                Text("Code \(membership.joinCode)")
-                    .font(.system(size: 15, design: .rounded))
-                    .foregroundColor(Color(hex: "32ADE6"))
+                Text(membership.displayName.isEmpty ? "Athlete" : membership.displayName)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "8E8E93"))
+                HStack(spacing: 12) {
+                    Text(membership.joinCode)
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .tracking(1.5)
+                        .foregroundColor(Color(hex: "00D3EA"))
+                    Button(copiedCode ? "Copied" : "Copy") {
+                        UIPasteboard.general.string = membership.joinCode
+                        copiedCode = true
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                }
+                Text("Share this code so teammates can join.")
+                    .font(.system(size: 13))
+                    .foregroundColor(Color(hex: "8E8E93"))
                 Text(syncLabel)
                     .font(.system(size: 12))
                     .foregroundColor(Color(hex: "8E8E93"))
+                Button("Leave club") { confirmLeave = true }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color(hex: "FA114F"))
+                    .padding(.top, 4)
+                    .confirmationDialog("Leave this club?", isPresented: $confirmLeave, titleVisibility: .visible) {
+                        Button("Leave club", role: .destructive) {
+                            membership.leaveClub()
+                        }
+                        Button("Stay", role: .cancel) {}
+                    } message: {
+                        Text("Your Health data will stop showing on the coach board until you join again.")
+                    }
             } else {
-                Text("Join a team so your coach can see today’s load.")
+                Text("Join a club so your coach can see today’s rings.")
                     .font(.system(size: 14))
                     .foregroundColor(Color(hex: "8E8E93"))
             }

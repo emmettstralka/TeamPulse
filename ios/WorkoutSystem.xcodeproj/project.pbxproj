@@ -14,7 +14,7 @@
 		1FAEA62A9D03FE860FCC85BC /* OfflineQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15392C836899E9B557D85E26 /* OfflineQueueManager.swift */; };
 		31A973E7A2BE2589BEFA6B15 /* WatchConnectivityReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21CB9BE1A0A9B2D74E1F31A /* WatchConnectivityReceiver.swift */; };
 		355580933C3ABB56711DDA75 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687974ACC0D79BF023877409 /* ContentView.swift */; };
-		41E5926B6DFAB054333C6678 /* WatchWorkout.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E591E302419A2D131205B169 /* WatchWorkout.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		41E5926B6DFAB054333C6678 /* TeamPluse.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E591E302419A2D131205B169 /* TeamPluse.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		541E1DF1EFAFACF4E6D63802 /* WorkoutSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2714A751BAB07F0FEE243DC5 /* WorkoutSummaryView.swift */; };
 		557E648CB3C8FDA767780BAC /* TeamMembershipStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576015CFE663135214B3AC28 /* TeamMembershipStore.swift */; };
 		812FBF2B55B67C09A35F1F83 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 323B6FA7945C7494BD37CF47 /* Color+Hex.swift */; };
@@ -46,7 +46,7 @@
 			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
 			dstSubfolderSpec = 16;
 			files = (
-				41E5926B6DFAB054333C6678 /* WatchWorkout.app in Embed Watch Content */,
+				41E5926B6DFAB054333C6678 /* TeamPluse.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -69,7 +69,7 @@
 		B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
 		B4D68E19B0DCA9DDBF95F136 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		D163775CFCC1DC3365294FC0 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
-		E591E302419A2D131205B169 /* WatchWorkout.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchWorkout.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E591E302419A2D131205B169 /* TeamPluse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TeamPluse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E778631C7E1AC2BC87D11E36 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		EF095CA19B8698D0C197DD75 /* TeamJoinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamJoinView.swift; sourceTree = "<group>"; };
 		F0F31B9E6875CC11686D64BA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -205,7 +205,7 @@
 		D31877AD2534D1CB815FF852 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E591E302419A2D131205B169 /* WatchWorkout.app */,
+				E591E302419A2D131205B169 /* TeamPluse.app */,
 				0BAE8AA46F4FD88627206D50 /* WorkoutSync.app */,
 			);
 			name = Products;
@@ -263,7 +263,7 @@
 			packageProductDependencies = (
 			);
 			productName = WatchWorkout;
-			productReference = E591E302419A2D131205B169 /* WatchWorkout.app */;
+			productReference = E591E302419A2D131205B169 /* TeamPluse.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -487,8 +487,12 @@
 				CODE_SIGN_ENTITLEMENTS = WatchWorkout/WatchWorkout.entitlements;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WatchWorkout/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone.watch;
+				PRODUCT_NAME = TeamPluse;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -506,8 +510,12 @@
 				CODE_SIGN_ENTITLEMENTS = WatchWorkout/WatchWorkout.entitlements;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WatchWorkout/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone.watch;
+				PRODUCT_NAME = TeamPluse;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -528,7 +536,10 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WorkoutSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone;
 				SDKROOT = iphoneos;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
@@ -548,7 +559,10 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WorkoutSync/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.workoutsystem.iphone;
 				SDKROOT = iphoneos;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;

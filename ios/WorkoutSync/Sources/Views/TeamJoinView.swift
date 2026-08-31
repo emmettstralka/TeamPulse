@@ -17,12 +17,12 @@ struct TeamJoinView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Your Team")
+                Text("Your club")
                     .font(.system(size: 34, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.top, 8)
 
-                Text("Join with a coach code, or create a club. Keep using Apple Workout — this app only syncs Health to the board.")
+                Text("Join with a coach’s code, or create a club. Keep using Apple Workout — this app only sends Health to the board.")
                     .font(.system(size: 15))
                     .foregroundColor(Color(hex: "8E8E93"))
 
@@ -49,7 +49,7 @@ struct TeamJoinView: View {
                 }
 
                 Button(action: submit) {
-                    Text(isWorking ? "Working…" : (mode == .join ? "Join team" : "Create club"))
+                    Text(isWorking ? "Working…" : (mode == .join ? "Join club" : "Create club"))
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
@@ -59,9 +59,15 @@ struct TeamJoinView: View {
                 }
                 .disabled(isWorking)
 
-                Text("Demo club code: NORTH1")
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundColor(Color(hex: "8E8E93"))
+                Button {
+                    mode = .join
+                    code = "NORTH1"
+                } label: {
+                    Text("Try demo club · NORTH1")
+                        .font(.system(size: 13, design: .rounded))
+                        .foregroundColor(Color(hex: "00D3EA"))
+                }
+                .buttonStyle(.plain)
             }
             .padding(20)
         }
@@ -127,7 +133,7 @@ struct TeamJoinView: View {
                         displayName: trimmedName
                     )
                     await MainActor.run {
-                        apply(result, fallbackName: "Team", code: trimmedCode.uppercased())
+                        apply(result, fallbackName: "Club", code: trimmedCode.uppercased())
                     }
                 } else {
                     let club = clubName.trimmingCharacters(in: .whitespacesAndNewlines)

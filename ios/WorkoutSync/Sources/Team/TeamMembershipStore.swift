@@ -48,6 +48,15 @@ final class TeamMembershipStore: ObservableObject {
         defaults.set(name, forKey: Keys.displayName)
     }
 
+    func leaveClub() {
+        teamId = ""
+        teamName = ""
+        joinCode = ""
+        defaults.removeObject(forKey: Keys.teamId)
+        defaults.removeObject(forKey: Keys.teamName)
+        defaults.removeObject(forKey: Keys.joinCode)
+    }
+
     func applyJoinedTeam(id: String, name: String, code: String, sport: String, displayName: String) {
         teamId = id
         teamName = name
