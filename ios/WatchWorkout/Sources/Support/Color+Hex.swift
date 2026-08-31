@@ -1,5 +1,20 @@
 import SwiftUI
 
+enum Pulse {
+    static let bg = Color.black
+    static let card = Color(hex: "1C1C1E")
+    static let card2 = Color(hex: "2C2C2E")
+    static let hair = Color(hex: "3A3A3C")
+    static let text = Color(hex: "F5F5F7")
+    static let muted = Color(hex: "8E8E93")
+    static let move = Color(hex: "FA114F")
+    static let exercise = Color(hex: "92ED2C")
+    static let stand = Color(hex: "00D3EA")
+    static let ok = Color(hex: "30D158")
+    static let watch = Color(hex: "FFD60A")
+    static let rest = Color(hex: "FF453A")
+}
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

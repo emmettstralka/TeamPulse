@@ -51,10 +51,11 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Heart Rate Data
 
-    func sendHeartRateData(sessionId: String, dataPoint: WorkoutDataPoint) {
+    func sendHeartRateData(sessionId: String, athleteId: String, dataPoint: WorkoutDataPoint) {
         let message: [String: Any] = [
             "type": "heart_rate_data",
             "session_id": sessionId,
+            "athlete_id": athleteId,
             "timestamp": dataPoint.timestamp,
             "heart_rate": dataPoint.heartRate,
             "zone": dataPoint.zone,
@@ -62,7 +63,7 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             "distance": dataPoint.distance,
             "device_status": dataPoint.deviceStatus
         ]
-        send(message)
+        sendLive(message)
     }
 
     // MARK: - Workout Control
@@ -76,10 +77,11 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
         send(message)
     }
 
-    func sendWorkoutResumed(sessionId: String) {
+    func sendWorkoutResumed(sessionId: String, athleteId: String) {
         let message: [String: Any] = [
             "type": "workout_resumed",
             "session_id": sessionId,
+            "athlete_id": athleteId,
             "timestamp": Date().timeIntervalSince1970
         ]
         send(message)
@@ -97,6 +99,35 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             "timestamp": Date().timeIntervalSince1970
         ]
         send(message)
+    }
+
+    /// Immediate HR updates: sendMessage when the iPhone is open.
+    /// Otherwise overwrite application context so we never queue thousands of samples.
+    private func sendLive(_ message: [String: Any]) {
+        guard let session = session, session.activationState == .activated else {
+            queueMessage(message)
+            return
+        }
+
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: { [weak self] _ in
+                self?.lastSyncDate = Date()
+            }, errorHandler: { [weak self] error in
+                print("WC live HR send error: \(error.localizedDescription)")
+                self?.pushLatestContext(message)
+            })
+        } else {
+            pushLatestContext(message)
+        }
+    }
+
+    private func pushLatestContext(_ message: [String: Any]) {
+        guard let session = session, session.activationState == .activated else { return }
+        do {
+            try session.updateApplicationContext(message)
+        } catch {
+            print("WC updateApplicationContext error: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Message Sending
@@ -236,11 +267,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
         handleReceivedMessage(userInfo)
     }
 
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        handleReceivedMessage(applicationContext)
+    }
+
     private func handleReceivedMessage(_ message: [String: Any]) {
         Task { @MainActor in
             guard let type = message["type"] as? String else { return }
 
             switch type {
+            case "athlete_identity":
+                if let athleteId = message["athlete_id"] as? String {
+                    WorkoutManager.shared.applyLinkedAthleteId(athleteId)
+                }
+
             case "ping":
                 // Respond with pong
                 send(["type": "pong", "timestamp": Date().timeIntervalSince1970])

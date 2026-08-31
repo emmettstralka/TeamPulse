@@ -56,9 +56,12 @@ final class BackendSyncService: NSObject, ObservableObject {
 
     // MARK: - WebSocket Connection
 
+    private var lastAthleteId: String = "athlete-001"
+
     @MainActor
     func connect(athleteId: String) {
         disconnect()
+        lastAthleteId = athleteId
 
         connectionState = .connecting
 
@@ -139,8 +142,36 @@ final class BackendSyncService: NSObject, ObservableObject {
             "device_status": "iphone_relay"
         ]
 
-        // Send via WebSocket
-        sendWebSocketJSON(dataPoint)
+        Task {
+            await sendHeartRateViaHTTP(dataPoint)
+        }
+    }
+
+    func startSession(athleteId: String, sessionId: String, workoutType: String) async {
+        lastAthleteId = athleteId
+        guard let url = httpBaseURL?.appendingPathComponent("api/sessions/start") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 8
+        let body: [String: Any] = [
+            "athlete_id": athleteId,
+            "session_id": sessionId,
+            "workout_type": workoutType
+        ]
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                print("Backend session start status=\(http.statusCode)")
+            }
+        } catch {
+            print("Backend session start failed: \(error.localizedDescription)")
+        }
+        await MainActor.run {
+            connect(athleteId: athleteId)
+            subscribe(sessionId: sessionId)
+        }
     }
 
     func endSession(
@@ -353,6 +384,26 @@ final class BackendSyncService: NSObject, ObservableObject {
         try await postJSONResponse(path: "api/teams", payload: ["name": name, "sport": sport])
     }
 
+    func fetchTeamBoard(joinCode: String) async throws -> [String: Any] {
+        try await getJSON(path: "api/teams/code/\(joinCode.uppercased())/board")
+    }
+
+    private func getJSON(path: String) async throws -> [String: Any] {
+        guard let url = apiURL(path) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 12
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "Request failed"
+            throw NSError(
+                domain: "TeamPulse",
+                code: (response as? HTTPURLResponse)?.statusCode ?? -1,
+                userInfo: [NSLocalizedDescriptionKey: message]
+            )
+        }
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
     func syncHealthKitWorkout(_ payload: [String: Any]) async {
         await postJSON(path: "api/workouts/sync", payload: payload)
     }
@@ -441,7 +492,7 @@ final class BackendSyncService: NSObject, ObservableObject {
         reconnectTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 // Reconnect with the last known athlete ID
-                self?.connect(athleteId: "athlete-001")
+                self?.connect(athleteId: self?.lastAthleteId ?? "athlete-001")
             }
         }
     }

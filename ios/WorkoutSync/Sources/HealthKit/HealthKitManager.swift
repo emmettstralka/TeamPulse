@@ -494,7 +494,7 @@ final class HealthKitManager: NSObject, ObservableObject {
         let calendar = Calendar.current
         var components = calendar.dateComponents([.era, .year, .month, .day], from: Date())
         components.calendar = calendar
-        let predicate = HKQuery.predicateForActivitySummaries(with: components)
+        let predicate = HKQuery.predicateForActivitySummary(with: components)
         let store = healthStore
 
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in

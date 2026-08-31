@@ -17,13 +17,17 @@ enum WorkoutType: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static var featured: [WorkoutType] {
+        [.mixedCardio, .running, .functionalStrengthTraining, .highIntensityIntervalTraining]
+    }
+
     var displayName: String {
         switch self {
         case .running: return "Run"
         case .cycling: return "Bike"
         case .functionalStrengthTraining: return "Strength"
         case .highIntensityIntervalTraining: return "HIIT"
-        case .mixedCardio: return "Mixed Cardio"
+        case .mixedCardio: return "Practice"
         case .hiking: return "Hike"
         case .rowing: return "Row"
         case .elliptical: return "Elliptical"
@@ -152,13 +156,14 @@ final class WorkoutManager: NSObject, ObservableObject {
     @Published private(set) var currentZone: String = "zone_1"
     @Published private(set) var averageHeartRate: Int = 0
     @Published private(set) var maxHeartRate: Int = 0
-    @Published private(set) var selectedWorkoutType: WorkoutType = .running
+    @Published private(set) var selectedWorkoutType: WorkoutType = .mixedCardio
     @Published private(set) var activityRings: ActivityRingData?
+    @Published private(set) var isAcquiringHeartRate = false
 
     // MARK: - Session Data
 
     private(set) var sessionId: String = ""
-    private(set) var athleteId: String = ""
+    private(set) var athleteId: String = UserDefaults.standard.string(forKey: "teampulse.watchAthleteId") ?? ""
     private var sessionStartDate: Date?
 
     // MARK: - HealthKit
@@ -167,6 +172,7 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var workoutSession: HKWorkoutSession?
     private var workoutBuilder: HKLiveWorkoutBuilder?
     private var workoutConfiguration: HKWorkoutConfiguration?
+    private var heartRateQuery: HKAnchoredObjectQuery?
 
     // MARK: - Data Streaming
 
@@ -179,7 +185,6 @@ final class WorkoutManager: NSObject, ObservableObject {
     // MARK: - Delegates
 
     private let connectivityManager = WatchConnectivityManager.shared
-    private let webSocketClient = WebSocketClient.shared
 
     // MARK: - Initialization
 
@@ -213,73 +218,96 @@ final class WorkoutManager: NSObject, ObservableObject {
         try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)
     }
 
+    func applyLinkedAthleteId(_ id: String) {
+        guard !id.isEmpty else { return }
+        athleteId = id
+        UserDefaults.standard.set(id, forKey: "teampulse.watchAthleteId")
+    }
+
     // MARK: - Workout Session Control
 
-    func startCountdown(athleteId: String) {
+    func startCountdown(athleteId: String? = nil) {
         guard workoutState == .idle else { return }
+        if let athleteId, !athleteId.isEmpty {
+            applyLinkedAthleteId(athleteId)
+        }
         workoutState = .countdown
     }
 
-    func startWorkout(athleteId: String) async throws {
+    func startWorkout(athleteId: String? = nil) async throws {
         guard workoutState == .idle || workoutState == .countdown else { return }
+        if let athleteId, !athleteId.isEmpty {
+            applyLinkedAthleteId(athleteId)
+        }
+        if self.athleteId.isEmpty {
+            self.athleteId = "watch-local"
+        }
 
-        // Generate session ID
         sessionId = UUID().uuidString
-        self.athleteId = athleteId
+        currentHeartRate = 0
+        activeCalories = 0
+        distance = 0
+        elapsedSeconds = 0
+        heartRateSamples = []
+        isAcquiringHeartRate = true
 
-        // Configure workout
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = selectedWorkoutType.hkWorkoutActivityType
-        configuration.locationType = .outdoor
+        configuration.locationType = .indoor
+        workoutConfiguration = configuration
 
-        // HKWorkoutSession is only supported on physical Watch hardware, not Watch Simulator
         #if targetEnvironment(simulator)
-        print("WorkoutManager: Running on Watch Simulator — skipping HKWorkoutSession")
+        print("WorkoutManager: Simulator — no optical HR. Using a live simulated BPM so the pipeline can be tested.")
         #else
-        // Create workout session
         do {
-            workoutSession = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
+            let session = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
+            session.delegate = self
+            workoutSession = session
+
+            let builder = session.associatedWorkoutBuilder()
+            let dataSource = HKLiveWorkoutDataSource(healthStore: healthStore, workoutConfiguration: configuration)
+            if let heartRate = HKQuantityType.quantityType(forIdentifier: .heartRate) {
+                dataSource.enableCollection(for: heartRate, predicate: HKQuery.predicateForObjects(from: .default()))
+            }
+            if let energy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
+                dataSource.enableCollection(for: energy, predicate: HKQuery.predicateForObjects(from: .default()))
+            }
+            builder.dataSource = dataSource
+            builder.delegate = self
+            workoutBuilder = builder
+
+            let start = Date()
+            sessionStartDate = start
+            session.prepare()
+            session.startActivity(with: start)
+            try await builder.beginCollection(at: start)
+            startHeartRateQuery(from: start)
         } catch {
-            throw WorkoutError.cannotCreateSession(error)
+            await MainActor.run {
+                workoutState = .idle
+                isAcquiringHeartRate = false
+            }
+            throw error
         }
         #endif
 
-        workoutBuilder = workoutSession?.associatedWorkoutBuilder()
-        workoutBuilder?.dataSource = HKLiveWorkoutDataSource(
-            healthStore: healthStore,
-            workoutConfiguration: configuration
-        )
+        if sessionStartDate == nil {
+            sessionStartDate = Date()
+        }
 
-        // Set delegates
-        workoutSession?.delegate = self
-        workoutBuilder?.delegate = self
-
-        // Start session
-        sessionStartDate = Date()
-        workoutSession?.startActivity(with: sessionStartDate!)
-
-        try await workoutBuilder?.beginCollection(at: sessionStartDate!)
-
-        // Fetch today's activity rings (includes today's workout contribution)
         await fetchTodayActivityRings()
 
-        // Start data streaming timer (simulates real-time polling)
         await MainActor.run {
             startDataStreamTimer()
             workoutState = .running
         }
 
-        // Notify iPhone via WatchConnectivity
         connectivityManager.sendSessionStarted(
             sessionId: sessionId,
-            athleteId: athleteId,
+            athleteId: self.athleteId,
             workoutType: selectedWorkoutType.rawValue,
-            startDate: sessionStartDate!
+            startDate: sessionStartDate ?? Date()
         )
-
-        // Connect WebSocket to backend
-        await webSocketClient.connect(athleteId: athleteId)
-        webSocketClient.subscribe(sessionId: sessionId)
     }
 
     func pauseWorkout() {
@@ -295,26 +323,27 @@ final class WorkoutManager: NSObject, ObservableObject {
         workoutSession?.resume()
         startDataStreamTimer()
         workoutState = .running
-        connectivityManager.sendWorkoutResumed(sessionId: sessionId)
+        connectivityManager.sendWorkoutResumed(sessionId: sessionId, athleteId: athleteId)
     }
 
     func endWorkout() async throws {
         guard workoutState == .running || workoutState == .paused else { return }
 
-        workoutState = .ended
         stopDataStreamTimer()
+        stopHeartRateQuery()
 
         let endDate = Date()
+        workoutSession?.stopActivity(with: endDate)
+        workoutSession?.end()
 
-        // End the HK workout
-        try await workoutBuilder?.endCollection(at: endDate)
+        do {
+            try await workoutBuilder?.endCollection(at: endDate)
+            _ = try await workoutBuilder?.finishWorkout()
+        } catch {
+            print("WorkoutManager: finishWorkout error \(error.localizedDescription)")
+        }
 
-        _ = try await workoutBuilder?.finishWorkout()
-
-        // Calculate duration
-        let duration = workoutSession?.endDate.map { Int($0.timeIntervalSince(sessionStartDate ?? endDate)) } ?? elapsedSeconds
-
-        // Notify iPhone
+        let duration = elapsedSeconds
         connectivityManager.sendWorkoutEnded(
             sessionId: sessionId,
             athleteId: athleteId,
@@ -324,8 +353,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             totalDistance: distance
         )
 
-        // Send final summary to backend
-        try await sendWorkoutSummary(
+        try? await sendWorkoutSummary(
             sessionId: sessionId,
             athleteId: athleteId,
             duration: duration,
@@ -335,22 +363,23 @@ final class WorkoutManager: NSObject, ObservableObject {
             maxHeartRate: maxHeartRate
         )
 
-        // Disconnect WebSocket
-        webSocketClient.disconnect()
-
-        // Reset state
-        resetState()
+        await MainActor.run {
+            isAcquiringHeartRate = false
+            workoutState = .ended
+        }
     }
 
     // MARK: - Data Streaming Timer
 
     private func startDataStreamTimer() {
         stopDataStreamTimer()
-        dataStreamTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.streamDataPoint()
+                self?.tickLiveSession()
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        dataStreamTimer = timer
     }
 
     private func stopDataStreamTimer() {
@@ -358,43 +387,38 @@ final class WorkoutManager: NSObject, ObservableObject {
         dataStreamTimer = nil
     }
 
-    private func streamDataPoint() {
-        guard workoutState == .running, currentHeartRate > 0 else { return }
+    @MainActor
+    private func tickLiveSession() {
+        guard workoutState == .running else { return }
 
         elapsedSeconds += 1
 
-        // Track stats
-        heartRateSamples.append(currentHeartRate)
-        if heartRateSamples.count > 0 {
-            averageHeartRate = heartRateSamples.reduce(0, +) / heartRateSamples.count
-        }
-        maxHeartRate = max(maxHeartRate, currentHeartRate)
+        #if targetEnvironment(simulator)
+        let wave = Int((sin(Double(elapsedSeconds) / 6.0) * 14).rounded())
+        applyHeartRate(118 + wave)
+        activeCalories += 0.16
+        #endif
 
-        // Compute zone
+        guard currentHeartRate >= 30 else { return }
+
+        heartRateSamples.append(currentHeartRate)
+        averageHeartRate = heartRateSamples.reduce(0, +) / max(heartRateSamples.count, 1)
+        maxHeartRate = max(maxHeartRate, currentHeartRate)
         currentZone = Self.computeZone(heartRate: currentHeartRate)
 
-        // Build data point
         let dataPoint = WorkoutDataPoint.from(
             heartRate: currentHeartRate,
             calories: activeCalories,
             distance: distance
         )
 
-        // Send via WebSocket to backend
-        webSocketClient.sendHeartRateData(
-            athleteId: athleteId,
-            sessionId: sessionId,
-            dataPoint: dataPoint
-        )
-
-        // Also sync to iPhone via WatchConnectivity (for guaranteed delivery)
         connectivityManager.sendHeartRateData(
             sessionId: sessionId,
+            athleteId: athleteId,
             dataPoint: dataPoint
         )
 
-        // Update complication context every 30 seconds so iPhone gets live data
-        if elapsedSeconds - lastComplicationUpdateSeconds >= 30 {
+        if elapsedSeconds - lastComplicationUpdateSeconds >= 15 {
             lastComplicationUpdateSeconds = elapsedSeconds
             connectivityManager.updateComplicationContext(
                 sessionId: sessionId,
@@ -405,13 +429,53 @@ final class WorkoutManager: NSObject, ObservableObject {
             )
         }
 
-        // Refresh activity rings every 60 seconds
         if elapsedSeconds - lastActivityRingFetchSeconds >= 60 {
             lastActivityRingFetchSeconds = elapsedSeconds
-            Task {
-                await self.fetchTodayActivityRings()
+            Task { await self.fetchTodayActivityRings() }
+        }
+    }
+
+    @MainActor
+    private func applyHeartRate(_ bpm: Int) {
+        guard bpm >= 30, bpm <= 250 else { return }
+        currentHeartRate = bpm
+        isAcquiringHeartRate = false
+        currentZone = Self.computeZone(heartRate: bpm)
+        maxHeartRate = max(maxHeartRate, bpm)
+    }
+
+    private func startHeartRateQuery(from start: Date) {
+        stopHeartRateQuery()
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return }
+
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let predicate = HKQuery.predicateForSamples(withStart: start.addingTimeInterval(-10), end: nil, options: .strictStartDate)
+
+        let handle: (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void = { [weak self] _, samples, _, _, _ in
+            guard let quantity = (samples as? [HKQuantitySample])?.last else { return }
+            let bpm = Int(quantity.quantity.doubleValue(for: unit).rounded())
+            Task { @MainActor in
+                self?.applyHeartRate(bpm)
             }
         }
+
+        let query = HKAnchoredObjectQuery(
+            type: heartRateType,
+            predicate: predicate,
+            anchor: nil,
+            limit: HKObjectQueryNoLimit,
+            resultsHandler: handle
+        )
+        query.updateHandler = handle
+        heartRateQuery = query
+        healthStore.execute(query)
+    }
+
+    private func stopHeartRateQuery() {
+        if let heartRateQuery {
+            healthStore.stop(heartRateQuery)
+        }
+        heartRateQuery = nil
     }
 
     // MARK: - Heart Rate Zone Calculation
@@ -517,9 +581,14 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
+    func dismissSummary() {
+        resetState()
+    }
+
     // MARK: - State Reset
 
     private func resetState() {
+        stopHeartRateQuery()
         elapsedSeconds = 0
         currentHeartRate = 0
         activeCalories = 0
@@ -536,6 +605,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         workoutSession = nil
         workoutBuilder = nil
         workoutConfiguration = nil
+        isAcquiringHeartRate = false
         workoutState = .idle
     }
 
@@ -608,8 +678,8 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
                 case HKQuantityType.quantityType(forIdentifier: .heartRate):
                     let heartRateUnit = HKUnit.count().unitDivided(by: .minute())
                     if let quantity = statistics?.mostRecentQuantity() {
-                        let hr = Int(quantity.doubleValue(for: heartRateUnit))
-                        self.currentHeartRate = hr
+                        let hr = Int(quantity.doubleValue(for: heartRateUnit).rounded())
+                        self.applyHeartRate(hr)
                     }
 
                 case HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned):

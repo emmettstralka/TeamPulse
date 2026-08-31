@@ -14,6 +14,7 @@ final class WatchConnectivityReceiver: NSObject, ObservableObject {
     @Published private(set) var isWatchConnected = false
     @Published private(set) var isWatchPaired = false
     @Published private(set) var activeSessionId: String?
+    @Published private(set) var activeAthleteId: String?
     @Published private(set) var lastReceivedHeartRate: Int?
     @Published private(set) var lastReceivedDate: Date?
 
@@ -92,14 +93,32 @@ final class WatchConnectivityReceiver: NSObject, ObservableObject {
         switch sessionState {
         case .idle:
             activeSessionId = nil
-        case .active(let sessionId, _):
+            activeAthleteId = nil
+        case .active(let sessionId, let athleteId):
             activeSessionId = sessionId
+            activeAthleteId = athleteId
         case .paused:
             break
         }
     }
 
     // MARK: - Send Commands to Watch
+
+    func sendAthleteIdentity(_ athleteId: String) {
+        guard !athleteId.isEmpty, let session = session, session.activationState == .activated else { return }
+        let message: [String: Any] = [
+            "type": "athlete_identity",
+            "athlete_id": athleteId,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { error in
+                print("Failed to send athlete identity: \(error.localizedDescription)")
+            }
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
 
     func sendCommandToWatch(_ command: String) {
         guard let session = session, session.activationState == .activated else { return }
@@ -187,34 +206,68 @@ extension WatchConnectivityReceiver: WCSessionDelegate {
             switch type {
             case "session_started":
                 let sessionId = message["session_id"] as? String ?? ""
-                let athleteId = message["athlete_id"] as? String ?? ""
+                let athleteId = message["athlete_id"] as? String ?? TeamMembershipStore.shared.athleteId
                 let workoutType = message["workout_type"] as? String ?? "running"
 
                 self.sessionState = .active(sessionId: sessionId, athleteId: athleteId)
                 self.activeSessionId = sessionId
+                self.activeAthleteId = athleteId
 
                 print("Session started from Watch: \(sessionId), type: \(workoutType)")
+                Task {
+                    await self.backendSync.startSession(
+                        athleteId: athleteId,
+                        sessionId: sessionId,
+                        workoutType: workoutType
+                    )
+                }
 
             case "heart_rate_data":
+                let athleteId = (message["athlete_id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                    ?? self.activeAthleteId
+                    ?? TeamMembershipStore.shared.athleteId
+                let sessionId = message["session_id"] as? String ?? self.activeSessionId ?? ""
+                let heartRate = intValue(message["heart_rate"])
                 let dataPoint = ReceivedDataPoint(
-                    athleteId: message["athlete_id"] as? String ?? "",
-                    sessionId: message["session_id"] as? String ?? "",
+                    athleteId: athleteId,
+                    sessionId: sessionId,
                     timestamp: message["timestamp"] as? String ?? "",
-                    heartRate: message["heart_rate"] as? Int ?? 0,
+                    heartRate: heartRate,
                     zone: message["zone"] as? String ?? "zone_1",
-                    calories: message["calories"] as? Double ?? 0,
-                    distance: message["distance"] as? Double ?? 0,
+                    calories: doubleValue(message["calories"]),
+                    distance: doubleValue(message["distance"]),
                     deviceStatus: message["device_status"] as? String ?? "watch"
                 )
-                self.handleDataPoint(dataPoint)
+                if heartRate >= 30 {
+                    self.handleDataPoint(dataPoint)
+                }
 
             case "workout_paused":
                 self.sessionState = .paused
 
             case "workout_resumed":
-                if let sessionId = self.activeSessionId,
-                   let athleteId = message["athlete_id"] as? String {
-                    self.sessionState = .active(sessionId: sessionId, athleteId: athleteId)
+                let sessionId = message["session_id"] as? String ?? self.activeSessionId ?? ""
+                let athleteId = message["athlete_id"] as? String ?? self.activeAthleteId ?? TeamMembershipStore.shared.athleteId
+                self.sessionState = .active(sessionId: sessionId, athleteId: athleteId)
+
+            case "live_workout":
+                let heartRate = intValue(message["heart_rate"])
+                if heartRate >= 30 {
+                    let athleteId = message["athlete_id"] as? String ?? self.activeAthleteId ?? TeamMembershipStore.shared.athleteId
+                    let sessionId = message["session_id"] as? String ?? self.activeSessionId ?? ""
+                    self.handleDataPoint(ReceivedDataPoint(
+                        athleteId: athleteId,
+                        sessionId: sessionId,
+                        timestamp: ISO8601DateFormatter().string(from: Date()),
+                        heartRate: heartRate,
+                        zone: "zone_1",
+                        calories: 0,
+                        distance: 0,
+                        deviceStatus: "watch"
+                    ))
+                    if self.sessionState == .idle, !sessionId.isEmpty {
+                        self.sessionState = .active(sessionId: sessionId, athleteId: athleteId)
+                    }
                 }
 
             case "workout_ended":
@@ -246,6 +299,20 @@ extension WatchConnectivityReceiver: WCSessionDelegate {
         }
     }
 
+    private func intValue(_ raw: Any?) -> Int {
+        if let n = raw as? Int { return n }
+        if let n = raw as? Double { return Int(n) }
+        if let n = raw as? NSNumber { return n.intValue }
+        return 0
+    }
+
+    private func doubleValue(_ raw: Any?) -> Double {
+        if let n = raw as? Double { return n }
+        if let n = raw as? Int { return Double(n) }
+        if let n = raw as? NSNumber { return n.doubleValue }
+        return 0
+    }
+
     // MARK: - Reachability
 
     func sessionReachabilityDidChange(_ session: WCSession) {
@@ -255,7 +322,7 @@ extension WatchConnectivityReceiver: WCSessionDelegate {
 
         if session.isReachable {
             print("Watch is now reachable")
-            // Flush any pending data
+            sendAthleteIdentity(TeamMembershipStore.shared.athleteId)
             offlineQueue.flushToBackend()
         }
     }

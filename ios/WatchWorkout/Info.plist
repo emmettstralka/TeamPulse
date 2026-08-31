@@ -22,5 +22,13 @@
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.workoutsystem.iphone</string>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout</string>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>TeamPulse reads live heart rate, calories, and Activity rings during a workout so your coach can see load.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>TeamPulse saves the workout session you start on Apple Watch.</string>
 </dict>
 </plist>

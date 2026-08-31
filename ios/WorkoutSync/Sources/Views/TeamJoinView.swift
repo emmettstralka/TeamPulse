@@ -15,75 +15,105 @@ struct TeamJoinView: View {
     enum Mode { case join, create }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Your club")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.top, 8)
-
-                Text("Join with a coach’s code, or create a club. Keep using Apple Workout — this app only sends Health to the board.")
-                    .font(.system(size: 15))
-                    .foregroundColor(Color(hex: "8E8E93"))
-
-                HStack(spacing: 0) {
-                    modeButton("Join", .join)
-                    modeButton("Create", .create)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    PulseBrandMark(size: 26)
+                        .pulseRoleSwitch()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("TeamPulse")
+                            .font(.system(size: 20, weight: .bold))
+                            .tracking(-0.4)
+                            .foregroundColor(Pulse.text)
+                        Text("Player")
+                            .font(.system(size: 13))
+                            .foregroundColor(Pulse.muted)
+                    }
                 }
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.top, 12)
 
-                field("Your name", text: $name)
+                Text("Your coach sees today’s rings.")
+                    .font(.system(size: 28, weight: .bold))
+                    .tracking(-0.6)
+                    .foregroundColor(Pulse.text)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                if mode == .join {
-                    field("Join code", text: $code)
-                        .textInputAutocapitalization(.characters)
-                } else {
-                    field("Club name", text: $clubName)
+                Text("Keep using Apple Workout. This app only sends Health to the club board.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Pulse.muted)
+
+                panel(title: mode == .join ? "Join a club" : "Create a club") {
+                    HStack(spacing: 0) {
+                        modeTab("Join", .join)
+                        modeTab("Create", .create)
+                    }
+                    .background(Pulse.card2)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    field(placeholder: "Your name", text: $name)
+
+                    if mode == .join {
+                        field(placeholder: "Join code", text: $code)
+                            .textInputAutocapitalization(.characters)
+                            .onChange(of: code) { _, value in
+                                let upper = value.uppercased()
+                                if upper != value { code = upper }
+                            }
+                        PulsePrimaryButton(
+                            title: isWorking ? "Joining…" : "Join club",
+                            enabled: !isWorking,
+                            action: { submit() }
+                        )
+                    } else {
+                        field(placeholder: "Club name", text: $clubName)
+                        PulseGhostButton(title: isWorking ? "Creating…" : "Create club", action: { submit() })
+                            .disabled(isWorking)
+                    }
+                }
+
+                panel(title: "Try a sample") {
+                    PulseGhostButton(title: isWorking ? "Joining…" : "Join Northside FC") {
+                        mode = .join
+                        code = "NORTH1"
+                        submit(forceDemo: true)
+                    }
+                    Text("Demo club · code NORTH1 · fake roster so you can see the board.")
+                        .font(.system(size: 12))
+                        .foregroundColor(Pulse.muted)
                 }
 
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.system(size: 13))
-                        .foregroundColor(Color(hex: "FA114F"))
+                        .foregroundColor(Pulse.rest)
                 }
-
-                Button(action: submit) {
-                    Text(isWorking ? "Working…" : (mode == .join ? "Join club" : "Create club"))
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .disabled(isWorking)
-
-                Button {
-                    mode = .join
-                    code = "NORTH1"
-                } label: {
-                    Text("Try demo club · NORTH1")
-                        .font(.system(size: 13, design: .rounded))
-                        .foregroundColor(Color(hex: "00D3EA"))
-                }
-                .buttonStyle(.plain)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 36)
+            .pulseReadable()
         }
-        .background(Color.black.ignoresSafeArea())
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Pulse.bg.ignoresSafeArea())
         .onAppear {
             if name.isEmpty { name = membership.displayName }
         }
     }
 
-    private func modeButton(_ title: String, _ value: Mode) -> some View {
-        Button {
-            mode = value
-        } label: {
+    private func panel<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(mode == value ? .black : .white)
+                .foregroundColor(Pulse.text)
+            content()
+        }
+        .pulseCard()
+    }
+
+    private func modeTab(_ title: String, _ value: Mode) -> some View {
+        Button { mode = value } label: {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(mode == value ? .black : Pulse.text)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(mode == value ? Color.white : Color.clear)
@@ -93,24 +123,26 @@ struct TeamJoinView: View {
         .padding(4)
     }
 
-    private func field(_ title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.8)
-                .foregroundColor(Color(hex: "8E8E93"))
-            TextField("", text: text)
-                .font(.system(size: 18, weight: .medium, design: .rounded))
-                .foregroundColor(.white)
-                .padding(14)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
+    private func field(placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .font(.system(size: 17, weight: .medium))
+            .foregroundColor(Pulse.text)
+            .padding(12)
+            .background(Pulse.card2)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Pulse.hair, lineWidth: 1)
+            )
     }
 
-    private func submit() {
+    private func submit(forceDemo: Bool = false) {
         errorMessage = nil
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if forceDemo && trimmedName.isEmpty {
+            trimmedName = "You"
+            name = trimmedName
+        }
         guard !trimmedName.isEmpty else {
             errorMessage = "Add your name so the coach can see you on the roster."
             return
@@ -122,7 +154,7 @@ struct TeamJoinView: View {
                     let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmedCode.isEmpty else {
                         await MainActor.run {
-                            errorMessage = "Enter the 6-character join code."
+                            errorMessage = "Enter the join code from your coach."
                             isWorking = false
                         }
                         return
@@ -159,7 +191,7 @@ struct TeamJoinView: View {
                 await healthKitManager.syncAllToBackend()
             } catch {
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
+                    errorMessage = "Couldn’t reach the club. Check the code, or start the backend."
                     isWorking = false
                 }
             }

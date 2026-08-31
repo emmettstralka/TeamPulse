@@ -1,6 +1,11 @@
 import Foundation
 import Combine
 
+enum AppRole: String {
+    case player
+    case coach
+}
+
 /// Persistent athlete + club membership. The iPhone app is a HealthKit bridge, not a workout UI.
 final class TeamMembershipStore: ObservableObject {
     static let shared = TeamMembershipStore()
@@ -11,9 +16,23 @@ final class TeamMembershipStore: ObservableObject {
     @Published var teamName: String
     @Published var joinCode: String
     @Published var sport: String
+    @Published var appRole: String
+    @Published var coachTeamId: String
+    @Published var coachTeamName: String
+    @Published var coachJoinCode: String
 
     var hasJoinedTeam: Bool {
         !teamId.isEmpty && !joinCode.isEmpty
+    }
+
+    var hasChosenRole: Bool {
+        appRole == AppRole.player.rawValue || appRole == AppRole.coach.rawValue
+    }
+
+    var isCoach: Bool { appRole == AppRole.coach.rawValue }
+
+    var hasCoachClub: Bool {
+        !coachJoinCode.isEmpty
     }
 
     private let defaults = UserDefaults.standard
@@ -26,6 +45,10 @@ final class TeamMembershipStore: ObservableObject {
         static let joinCode = "teampulse.joinCode"
         static let sport = "teampulse.sport"
         static let lastWorkoutSync = "teampulse.lastWorkoutSync"
+        static let appRole = "teampulse.appRole"
+        static let coachTeamId = "teampulse.coachTeamId"
+        static let coachTeamName = "teampulse.coachTeamName"
+        static let coachJoinCode = "teampulse.coachJoinCode"
     }
 
     private init() {
@@ -34,13 +57,47 @@ final class TeamMembershipStore: ObservableObject {
         } else {
             let generated = "ath-" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(10).lowercased()
             athleteId = String(generated)
-            defaults.set(athleteId, forKey: Keys.athleteId)
+            defaults.set(String(generated), forKey: Keys.athleteId)
         }
         displayName = defaults.string(forKey: Keys.displayName) ?? ""
         teamId = defaults.string(forKey: Keys.teamId) ?? ""
         teamName = defaults.string(forKey: Keys.teamName) ?? ""
         joinCode = defaults.string(forKey: Keys.joinCode) ?? ""
         sport = defaults.string(forKey: Keys.sport) ?? "soccer"
+        coachTeamId = defaults.string(forKey: Keys.coachTeamId) ?? ""
+        coachTeamName = defaults.string(forKey: Keys.coachTeamName) ?? ""
+        coachJoinCode = defaults.string(forKey: Keys.coachJoinCode) ?? ""
+        appRole = defaults.string(forKey: Keys.appRole) ?? ""
+        if appRole.isEmpty && !teamId.isEmpty && !joinCode.isEmpty {
+            appRole = AppRole.player.rawValue
+            defaults.set(appRole, forKey: Keys.appRole)
+        }
+    }
+
+    func chooseRole(_ role: AppRole) {
+        appRole = role.rawValue
+        defaults.set(role.rawValue, forKey: Keys.appRole)
+        if role == .coach, coachJoinCode.isEmpty, !joinCode.isEmpty {
+            applyCoachClub(id: teamId, name: teamName, code: joinCode)
+        }
+    }
+
+    func applyCoachClub(id: String, name: String, code: String) {
+        coachTeamId = id
+        coachTeamName = name
+        coachJoinCode = code.uppercased()
+        defaults.set(id, forKey: Keys.coachTeamId)
+        defaults.set(name, forKey: Keys.coachTeamName)
+        defaults.set(coachJoinCode, forKey: Keys.coachJoinCode)
+    }
+
+    func closeCoachClub() {
+        coachTeamId = ""
+        coachTeamName = ""
+        coachJoinCode = ""
+        defaults.removeObject(forKey: Keys.coachTeamId)
+        defaults.removeObject(forKey: Keys.coachTeamName)
+        defaults.removeObject(forKey: Keys.coachJoinCode)
     }
 
     func updateProfile(name: String) {

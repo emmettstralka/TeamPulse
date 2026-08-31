@@ -1,180 +1,114 @@
 import SwiftUI
 import WatchKit
 
-// MARK: - Design System (45mm base: 198×242 pt)
-
 private var scale: CGFloat {
-    let w = WKInterfaceDevice.current().screenBounds.width
-    return w / 198.0
+    WKInterfaceDevice.current().screenBounds.width / 198.0
 }
 
 private func sp(_ pts: CGFloat) -> CGFloat {
     pts * scale
 }
 
-// MARK: - Ring Colors
-
-private let ringMove = Color(hex: "FA114F")
-private let ringExercise = Color(hex: "92ED2C")
-private let ringStand = Color(hex: "00D3EA")
-
-// MARK: - Content View
-
 struct ContentView: View {
     @EnvironmentObject var workoutManager: WorkoutManager
 
     var body: some View {
         ZStack {
+            Pulse.bg.ignoresSafeArea()
             switch workoutManager.workoutState {
             case .idle:
-                WorkoutIdleView()
-
+                WatchHomeView()
             case .countdown:
                 CountdownOverlay {
-                    Task {
-                        try? await workoutManager.startWorkout(athleteId: "athlete-001")
-                    }
+                    Task { await startFromCountdown() }
                 }
-
             case .running, .paused:
                 WorkoutActiveContainer()
-
             case .ended:
                 WorkoutSummaryView()
             }
         }
     }
+
+    private func startFromCountdown() async {
+        do {
+            try await workoutManager.startWorkout()
+        } catch {
+            await MainActor.run { workoutManager.dismissSummary() }
+        }
+    }
 }
 
-// MARK: - Idle / Workout Selection View
-
-struct WorkoutIdleView: View {
+struct WatchHomeView: View {
     @EnvironmentObject var workoutManager: WorkoutManager
     @State private var isRequestingAuth = false
     @State private var showAuthError = false
     @State private var authErrorMessage = ""
 
+    private var rings: ActivityRingData? { workoutManager.activityRings }
+
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                if let rings = workoutManager.activityRings {
-                    HStack(spacing: sp(8)) {
-                        SummaryActivityRings(
-                            moveProgress: CGFloat(rings.moveProgress),
-                            exerciseProgress: CGFloat(rings.exerciseProgress),
-                            standProgress: CGFloat(rings.standProgress)
-                        )
-                        .frame(width: sp(52), height: sp(52))
-                        .scaleEffect(0.45)
-                        .frame(width: sp(52), height: sp(52))
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("MOVE \(Int(rings.moveCalories)) CAL")
-                                .font(.system(size: sp(8), weight: .bold))
-                                .foregroundColor(ringMove)
-                            Text("EXERCISE \(rings.exerciseMinutes) MIN")
-                                .font(.system(size: sp(8), weight: .bold))
-                                .foregroundColor(ringExercise)
-                            Text("STAND \(rings.standHours) HRS")
-                                .font(.system(size: sp(8), weight: .bold))
-                                .foregroundColor(ringStand)
-                        }
-                    }
-                    .padding(.top, sp(4))
-                }
-
-                // ── Top: Workout icon + name ────────────────────────────────
-                VStack(spacing: sp(4)) {
-                    // Workout type icon in a circle
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: sp(48), height: sp(48))
-                        .overlay(
-                            WorkoutIcon(type: workoutManager.selectedWorkoutType)
-                                .frame(width: sp(28), height: sp(28))
-                                .foregroundColor(.white)
-                        )
-
-                    // Workout name below icon
-                    Text(workoutManager.selectedWorkoutType.displayName.uppercased())
-                        .font(.system(size: sp(11), weight: .semibold))
-                        .foregroundColor(.white)
-                        .tracking(0.5)
-                }
-                .padding(.top, sp(10))
-
-                Spacer()
-
-                // ── Scrollable workout type grid ────────────────────────────
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                    ], spacing: sp(4)) {
-                        ForEach(WorkoutType.allCases) { type in
-                            WorkoutTypeCellSmall(
-                                type: type,
-                                isSelected: workoutManager.selectedWorkoutType == type,
-                                action: {
-                                    workoutManager.selectWorkoutType(type)
-                                }
-                            )
-                        }
-                    }
-                    .padding(.horizontal, sp(8))
-                    .padding(.top, sp(6))
-                }
-                .frame(maxHeight: sp(100))
-
-                Spacer()
-
-                // ── Bottom bar ─────────────────────────────────────────────
-                HStack {
-                    MusicGlyph()
-                        .frame(width: sp(14), height: sp(14))
-                        .foregroundColor(Color(hex: "B3B3B3"))
-                        .frame(width: sp(30))
-
+        ScrollView {
+            VStack(alignment: .leading, spacing: sp(8)) {
+                HStack(spacing: sp(6)) {
+                    WatchBrandMark(size: sp(16))
+                    Text("TeamPulse")
+                        .font(.system(size: sp(13), weight: .bold))
+                        .foregroundColor(Pulse.text)
                     Spacer()
+                }
 
-                    // Start button (center)
-                    Button {
-                        startWorkout()
-                    } label: {
-                        HStack(spacing: sp(4)) {
-                            PlayIcon()
-                                .frame(width: sp(10), height: sp(10))
-                                .foregroundColor(.black)
-                            Text("Start")
-                                .font(.system(size: sp(13), weight: .semibold))
-                                .foregroundColor(.black)
+                WatchRings(
+                    move: rings?.moveProgress ?? 0,
+                    exercise: rings?.exerciseProgress ?? 0,
+                    stand: rings?.standProgress ?? 0
+                )
+                .frame(height: sp(84))
+                .frame(maxWidth: .infinity)
+
+                WatchRingRow(title: "Move", value: "\(Int(rings?.moveCalories ?? 0))/\(Int(rings?.moveGoal ?? 500))", unit: "CAL", color: Pulse.move)
+                WatchRingRow(title: "Exercise", value: "\(rings?.exerciseMinutes ?? 0)/\(rings?.exerciseGoal ?? 30)", unit: "MIN", color: Pulse.exercise)
+                WatchRingRow(title: "Stand", value: "\(rings?.standHours ?? 0)/\(rings?.standGoal ?? 12)", unit: "HRS", color: Pulse.stand)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: sp(6)) {
+                    ForEach(WorkoutType.featured) { type in
+                        Button {
+                            workoutManager.selectWorkoutType(type)
+                        } label: {
+                            Text(type.displayName)
+                                .font(.system(size: sp(11), weight: .semibold))
+                                .foregroundColor(workoutManager.selectedWorkoutType == type ? .black : Pulse.text)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, sp(8))
+                                .background(workoutManager.selectedWorkoutType == type ? Color.white : Pulse.card2)
+                                .clipShape(Capsule())
                         }
-                        .frame(width: sp(80), height: sp(32))
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, sp(4))
+
+                Button(action: startWorkout) {
+                    Text(isRequestingAuth ? "…" : "Start live HR")
+                        .font(.system(size: sp(14), weight: .semibold))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: sp(34))
                         .background(Color.white)
-                        .cornerRadius(sp(16))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isRequestingAuth)
-
-                    Spacer()
-
-                    WatchMark()
-                        .frame(width: sp(18), height: sp(18))
-                        .foregroundColor(Color(hex: "B3B3B3"))
-                        .frame(width: sp(30))
+                        .clipShape(Capsule())
                 }
-                .padding(.horizontal, sp(12))
-                .padding(.bottom, sp(2))
+                .buttonStyle(.plain)
+                .disabled(isRequestingAuth)
 
-                Text("Apple Workout still syncs")
+                Text("Coach sees this BPM")
                     .font(.system(size: sp(8)))
-                    .foregroundColor(Color(hex: "8E8E93"))
-                    .padding(.bottom, sp(6))
+                    .foregroundColor(Pulse.muted)
+                    .frame(maxWidth: .infinity)
             }
+            .padding(.horizontal, sp(8))
+            .padding(.bottom, sp(8))
         }
+        .background(Pulse.bg.ignoresSafeArea())
         .onAppear {
             Task { await workoutManager.fetchTodayActivityRings() }
         }
@@ -190,347 +124,135 @@ struct WorkoutIdleView: View {
         Task {
             do {
                 try await workoutManager.requestAuthorization()
-                await MainActor.run {
-                    workoutManager.startCountdown(athleteId: "athlete-001")
-                }
+                try await workoutManager.startWorkout()
             } catch {
                 await MainActor.run {
                     authErrorMessage = error.localizedDescription
                     showAuthError = true
                 }
             }
-            await MainActor.run {
-                isRequestingAuth = false
-            }
+            await MainActor.run { isRequestingAuth = false }
         }
     }
 }
 
-// MARK: - Small Workout Type Cell
+struct WatchBrandMark: View {
+    var size: CGFloat
+    var body: some View {
+        let sw = max(1.4, size * 0.1)
+        ZStack {
+            Circle().stroke(Pulse.move, lineWidth: sw)
+            Circle().stroke(Pulse.exercise, lineWidth: sw).padding(size * 0.16)
+            Circle().stroke(Pulse.stand, lineWidth: sw).padding(size * 0.32)
+        }
+        .frame(width: size, height: size)
+    }
+}
 
-struct WorkoutTypeCellSmall: View {
-    let type: WorkoutType
-    let isSelected: Bool
-    let action: () -> Void
+struct WatchRingRow: View {
+    let title: String
+    let value: String
+    let unit: String
+    let color: Color
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                WorkoutIcon(type: type)
-                    .frame(width: sp(20), height: sp(20))
-                    .foregroundColor(isSelected ? .white : Color(hex: "B3B3B3"))
-
-                Text(type.displayName)
-                    .font(.system(size: sp(7), weight: .medium))
-                    .foregroundColor(isSelected ? .white : Color(hex: "B3B3B3"))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: sp(36))
-            .background(
-                RoundedRectangle(cornerRadius: sp(6))
-                    .fill(isSelected ? Color.white.opacity(0.18) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: sp(6))
-                    .stroke(
-                        isSelected ? Color.white.opacity(0.35) : Color.gray.opacity(0.12),
-                        lineWidth: 1
-                    )
-            )
+        HStack {
+            Circle().fill(color).frame(width: sp(6), height: sp(6))
+            Text(title.uppercased())
+                .font(.system(size: sp(9), weight: .bold))
+                .tracking(0.4)
+                .foregroundColor(color)
+            Spacer()
+            Text(value)
+                .font(.system(size: sp(12), weight: .bold, design: .rounded))
+                .foregroundColor(Pulse.text)
+                .monospacedDigit()
+            Text(unit)
+                .font(.system(size: sp(8), weight: .semibold))
+                .foregroundColor(Pulse.muted)
         }
-        .buttonStyle(.plain)
     }
 }
 
-// MARK: - Countdown Overlay
+struct WatchRings: View {
+    var move: Double
+    var exercise: Double
+    var stand: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            let sw = max(7, size * 0.11)
+            let gap = max(3, size * 0.045)
+            let outer = size / 2 - sw / 2
+            let mid = outer - sw - gap
+            let inner = mid - sw - gap
+            ZStack {
+                ring(outer, move, Pulse.move, sw)
+                ring(mid, exercise, Pulse.exercise, sw)
+                ring(inner, stand, Pulse.stand, sw)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+
+    private func ring(_ radius: CGFloat, _ progress: Double, _ color: Color, _ sw: CGFloat) -> some View {
+        let shown = min(max(progress, 0), 1)
+        return ZStack {
+            Circle()
+                .stroke(color.opacity(0.22), style: StrokeStyle(lineWidth: sw, lineCap: .round))
+                .frame(width: radius * 2, height: radius * 2)
+            Circle()
+                .trim(from: 0, to: CGFloat(max(shown, 0.001)))
+                .stroke(color, style: StrokeStyle(lineWidth: sw, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: radius * 2, height: radius * 2)
+        }
+    }
+}
 
 struct CountdownOverlay: View {
     let onComplete: () -> Void
-
-    @State private var countdownValue: Int = 3
-    @State private var ringProgress: CGFloat = 0.0
-    @State private var numberOpacity: CGFloat = 1.0
-    @State private var scale: CGFloat = 0.8
-
-    private let ringRadius: CGFloat = 52
-    private let ringStroke: CGFloat = 6
+    @State private var countdownValue = 3
+    @State private var ringProgress: CGFloat = 0
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-
-            // Ring background
+            Pulse.bg.ignoresSafeArea()
             Circle()
-                .stroke(Color.white.opacity(0.15), lineWidth: ringStroke)
-                .frame(width: ringRadius * 2, height: ringRadius * 2)
-
-            // Animated ring progress
+                .stroke(Pulse.move.opacity(0.22), lineWidth: 6)
+                .frame(width: 104, height: 104)
             Circle()
                 .trim(from: 0, to: ringProgress)
-                .stroke(
-                    Color.white,
-                    style: StrokeStyle(lineWidth: ringStroke, lineCap: .round)
-                )
-                .frame(width: ringRadius * 2, height: ringRadius * 2)
+                .stroke(Pulse.move, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .frame(width: 104, height: 104)
                 .rotationEffect(.degrees(-90))
-
-            // Countdown number
             Text("\(countdownValue)")
                 .font(.system(size: 48, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-                .opacity(numberOpacity)
-                .scaleEffect(scale)
+                .foregroundColor(Pulse.text)
         }
-        .onAppear {
-            startCountdown()
-        }
-        .onChange(of: countdownValue) { _, newValue in
-            if newValue > 0 {
-                animateNumber()
-            }
-        }
+        .onAppear { startCountdown() }
     }
 
     private func startCountdown() {
-        // Use a timer to drive the countdown
         var elapsed: Double = 0
         let startTime = Date()
-
         Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { timer in
             elapsed = Date().timeIntervalSince(startTime)
-
-            // Ring progress: 0 → 1 over 1 second per count
             let countSeconds = 3 - countdownValue
-            let fraction = elapsed - Double(countSeconds)
-            ringProgress = CGFloat(min(1.0, fraction))
-
+            ringProgress = CGFloat(min(1, elapsed - Double(countSeconds)))
             if elapsed >= Double(4 - countdownValue) {
                 if countdownValue > 1 {
                     countdownValue -= 1
                     ringProgress = 0
                 } else {
                     timer.invalidate()
-                    // Brief flash then complete
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        numberOpacity = 0
-                        scale = 1.2
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        onComplete()
-                    }
+                    onComplete()
                 }
             }
         }
     }
-
-    private func animateNumber() {
-        withAnimation(.easeOut(duration: 0.15)) {
-            numberOpacity = 0
-            scale = 1.15
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.easeOut(duration: 0.15)) {
-                numberOpacity = 1
-                scale = 1.0
-            }
-        }
-    }
 }
-
-// MARK: - Play Icon (geometric)
-
-struct PlayIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                let size = min(w, h)
-                let tx = size * 0.15
-                let ty = size * 0.10
-                path.move(to: CGPoint(x: tx, y: ty))
-                path.addLine(to: CGPoint(x: tx + size * 0.75, y: h / 2))
-                path.addLine(to: CGPoint(x: tx, y: ty + size * 0.80))
-                path.closeSubpath()
-            }
-        }
-    }
-}
-
-struct WatchMark: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.addRoundedRect(in: CGRect(x: w * 0.28, y: h * 0.08, width: w * 0.44, height: h * 0.84), cornerSize: CGSize(width: w * 0.16, height: w * 0.16))
-                path.addEllipse(in: CGRect(x: w * 0.40, y: h * 0.38, width: w * 0.20, height: h * 0.24))
-            }
-            .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
-        }
-    }
-}
-
-struct MusicGlyph: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.addEllipse(in: CGRect(x: w * 0.08, y: h * 0.62, width: w * 0.28, height: h * 0.24))
-                path.move(to: CGPoint(x: w * 0.36, y: h * 0.74))
-                path.addLine(to: CGPoint(x: w * 0.36, y: h * 0.12))
-                path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.22))
-                path.addLine(to: CGPoint(x: w * 0.88, y: h * 0.78))
-                path.addEllipse(in: CGRect(x: w * 0.60, y: h * 0.66, width: w * 0.28, height: h * 0.24))
-            }
-            .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
-        }
-    }
-}
-
-// MARK: - Workout Icon (Custom geometric shapes)
-
-struct WorkoutIcon: View {
-    let type: WorkoutType
-
-    var body: some View {
-        switch type {
-        case .running:
-            RunningIcon()
-        case .cycling:
-            CyclingIcon()
-        case .functionalStrengthTraining:
-            StrengthIcon()
-        case .highIntensityIntervalTraining:
-            HIITIcon()
-        case .yoga:
-            YogaIcon()
-        default:
-            GenericIcon()
-        }
-    }
-}
-
-// MARK: - Custom Icon Shapes
-
-struct RunningIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let cx = geo.size.width / 2
-            let cy = geo.size.height / 2
-            Path { path in
-                path.addEllipse(in: CGRect(x: cx + 4, y: cy - 8, width: 4, height: 4))
-                path.move(to: CGPoint(x: cx + 6, y: cy - 4))
-                path.addLine(to: CGPoint(x: cx + 2, y: cy + 2))
-                path.move(to: CGPoint(x: cx + 6, y: cy - 2))
-                path.addLine(to: CGPoint(x: cx + 10, y: cy + 1))
-                path.move(to: CGPoint(x: cx + 2, y: cy + 2))
-                path.addLine(to: CGPoint(x: cx, y: cy + 8))
-                path.move(to: CGPoint(x: cx + 2, y: cy + 2))
-                path.addLine(to: CGPoint(x: cx + 6, y: cy + 8))
-            }
-            .stroke(lineWidth: 1.5)
-        }
-    }
-}
-
-struct CyclingIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.addEllipse(in: CGRect(x: 2, y: h - 10, width: 8, height: 8))
-                path.addEllipse(in: CGRect(x: w - 10, y: h - 10, width: 8, height: 8))
-                path.move(to: CGPoint(x: 6, y: h - 6))
-                path.addLine(to: CGPoint(x: w / 2, y: h / 2 - 2))
-                path.addLine(to: CGPoint(x: w - 6, y: h - 6))
-                path.move(to: CGPoint(x: w / 2, y: h / 2 - 2))
-                path.addLine(to: CGPoint(x: w / 2 - 2, y: h / 2 - 8))
-                path.addLine(to: CGPoint(x: w - 6, y: h - 6))
-            }
-            .stroke(lineWidth: 1.5)
-        }
-    }
-}
-
-struct StrengthIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.addRect(CGRect(x: 2, y: h / 2 - 3, width: 3, height: 6))
-                path.move(to: CGPoint(x: 5, y: h / 2))
-                path.addLine(to: CGPoint(x: w - 5, y: h / 2))
-                path.addRect(CGRect(x: w - 5, y: h / 2 - 3, width: 3, height: 6))
-            }
-            .stroke(lineWidth: 1.5)
-        }
-    }
-}
-
-struct HIITIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.move(to: CGPoint(x: w / 2, y: h - 2))
-                path.addLine(to: CGPoint(x: w / 2, y: 2))
-                path.move(to: CGPoint(x: w / 2 - 4, y: 6))
-                path.addLine(to: CGPoint(x: w / 2, y: 2))
-                path.addLine(to: CGPoint(x: w / 2 + 4, y: 6))
-                path.move(to: CGPoint(x: 4, y: 4))
-                path.addLine(to: CGPoint(x: 4, y: h - 4))
-                path.move(to: CGPoint(x: 1, y: h - 8))
-                path.addLine(to: CGPoint(x: 4, y: h - 4))
-                path.addLine(to: CGPoint(x: 7, y: h - 8))
-            }
-            .stroke(lineWidth: 1.5)
-        }
-    }
-}
-
-struct YogaIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.addEllipse(in: CGRect(x: w / 2 - 2, y: 2, width: 4, height: 4))
-                path.move(to: CGPoint(x: 2, y: h / 2 - 2))
-                path.addLine(to: CGPoint(x: w - 2, y: h / 2 - 2))
-                path.move(to: CGPoint(x: w / 2, y: 6))
-                path.addLine(to: CGPoint(x: w / 2, y: h / 2 + 4))
-                path.move(to: CGPoint(x: w / 2, y: h / 2 + 4))
-                path.addLine(to: CGPoint(x: 4, y: h - 2))
-                path.move(to: CGPoint(x: w / 2, y: h / 2 + 4))
-                path.addLine(to: CGPoint(x: w - 4, y: h - 2))
-            }
-            .stroke(lineWidth: 1.5)
-        }
-    }
-}
-
-struct GenericIcon: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            Path { path in
-                path.addEllipse(in: CGRect(x: 2, y: 2, width: w - 4, height: h - 4))
-                path.move(to: CGPoint(x: 6, y: h / 2))
-                path.addLine(to: CGPoint(x: w - 6, y: h / 2))
-            }
-            .stroke(lineWidth: 1.5)
-        }
-    }
-}
-
-// MARK: - Preview
 
 #Preview {
     ContentView()

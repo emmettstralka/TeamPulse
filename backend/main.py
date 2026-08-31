@@ -80,6 +80,7 @@ async def startup():
 class SessionStartRequest(BaseModel):
     athlete_id: str
     workout_type: str = "running"
+    session_id: Optional[str] = None
 
 
 class HeartRateDataPoint(BaseModel):
@@ -183,9 +184,10 @@ async def health_check():
 @app.post("/api/sessions/start")
 async def start_session(req: SessionStartRequest):
     """Start a new workout session."""
-    session_id = str(uuid.uuid4())
+    session_id = req.session_id or str(uuid.uuid4())
     upsert_athlete(req.athlete_id)
-    session = create_session(session_id, req.athlete_id, req.workout_type)
+    existing = get_session(session_id)
+    session = existing or create_session(session_id, req.athlete_id, req.workout_type)
     logger.info(f"Session started: {session_id} athlete={req.athlete_id} type={req.workout_type}")
     return {"session_id": session_id, "session": session}
 

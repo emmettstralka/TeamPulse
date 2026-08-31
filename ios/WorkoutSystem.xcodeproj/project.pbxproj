@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0FDFB8EAAE3B65A972C2A5C7 /* ActivityRingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */; };
+		C8A91F02B3D44E1A9C7E5B15 /* CoachBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A91F02B3D44E1A9C7E5B14 /* CoachBoardView.swift */; };
 		116272EFB08D3C764BE1CBBC /* HealthSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239D7B2002FDFCDBFE0446B4 /* HealthSummaryView.swift */; };
 		143A4D3E0C892E37D70DA476 /* WatchWorkoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35AFB18402F32BFA6F52EDDF /* WatchWorkoutApp.swift */; };
 		1BD74FD41C5679E18B59864B /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D68E19B0DCA9DDBF95F136 /* WebSocketClient.swift */; };
@@ -67,6 +68,7 @@
 		687974ACC0D79BF023877409 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A0BFF023B454D443D2CEEB28 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
+		C8A91F02B3D44E1A9C7E5B14 /* CoachBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachBoardView.swift; sourceTree = "<group>"; };
 		B4D68E19B0DCA9DDBF95F136 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		D163775CFCC1DC3365294FC0 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		E591E302419A2D131205B169 /* TeamPluse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TeamPluse.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -153,6 +155,7 @@
 			isa = PBXGroup;
 			children = (
 				B44B9A8F4AFAF8AD225A2234 /* ActivityRingsView.swift */,
+				C8A91F02B3D44E1A9C7E5B14 /* CoachBoardView.swift */,
 				687974ACC0D79BF023877409 /* ContentView.swift */,
 				239D7B2002FDFCDBFE0446B4 /* HealthSummaryView.swift */,
 				E778631C7E1AC2BC87D11E36 /* OnboardingView.swift */,
@@ -326,6 +329,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0FDFB8EAAE3B65A972C2A5C7 /* ActivityRingsView.swift in Sources */,
+				C8A91F02B3D44E1A9C7E5B15 /* CoachBoardView.swift in Sources */,
 				8B29F7079DB443EBF47E9216 /* BackendSyncService.swift in Sources */,
 				355580933C3ABB56711DDA75 /* ContentView.swift in Sources */,
 				823447FDCFACCEB2669AD843 /* HealthKitManager.swift in Sources */,
@@ -545,6 +549,8 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 			};
 			name = Debug;
 		};
@@ -568,6 +574,8 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 			};
 			name = Release;
 		};
